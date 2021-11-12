@@ -1,0 +1,29 @@
+[package]
+name = "torimies-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luukas Pörtfors <lajp@iki.fi>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies.serenity]
+version = "0.10.9"
+default-features = false
+features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework", "unstable_discord_api"]
+
+[dependencies.tokio]
+version = "1.0"
+features = ["macros", "rt-multi-thread", "signal"]
+
+[dependencies.sqlx]
+version = "*"
+features = ["runtime-tokio-rustls", "sqlite"]
+
+[dependencies]
+regex = "*"
+dotenv = "*"
+tracing = "*"
+tracing-subscriber = "*"
+futures = "*"
+chrono = "*"
+reqwest = "*"
+html_parser = "*"
