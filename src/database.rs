@@ -4,11 +4,13 @@ use tracing::info;
 
 impl Database {
     pub async fn add_vahti_entry(&self, url: &str, userid: i64) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+        let time = (chrono::Local::now()-chrono::Duration::hours(1)).timestamp();
         info!("Lisätään Vahti `{}` käyttäjälle {}", url, userid);
         sqlx::query!(
-            "INSERT INTO Vahdit (url, user_id) VALUES (?, ?)",
+            "INSERT INTO Vahdit (url, user_id, last_updated) VALUES (?, ?, ?)",
             url,
             userid,
+            time
             )
             .execute(&self.database)
             .await
@@ -51,6 +53,18 @@ impl Database {
             "SELECT * FROM Vahdit"
             )
             .fetch_all(&self.database)
+            .await
+    }
+    pub async fn vahti_updated(&self, vahti: Vahti) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+        info!("Vahti päivitetty {} käyttäjälle {}", vahti.url, vahti.user_id);
+        let time = chrono::Local::now().timestamp();
+        sqlx::query!(
+            "UPDATE Vahdit SET last_updated = ? WHERE url = ? AND user_id = ?",
+            time,
+            vahti.url,
+            vahti.user_id,
+            )
+            .execute(&self.database)
             .await
     }
 }

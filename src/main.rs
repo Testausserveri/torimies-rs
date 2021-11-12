@@ -1,14 +1,12 @@
 mod tori;
 mod vahti;
+mod owner;
 pub mod database;
 
 use std::{collections::HashSet, env, sync::Arc};
 
+use owner::*;
 use vahti::new_vahti;
-
-use chrono::NaiveDate;
-use chrono::prelude::*;
-
 use serenity::{
     async_trait,
     framework::standard::*,
@@ -16,11 +14,9 @@ use serenity::{
     model::{
         event::ResumedEvent,
         gateway::Ready,
-        id::GuildId,
         interactions::{
             application_command::{
                 ApplicationCommand,
-                ApplicationCommandInteractionDataOptionValue,
                 ApplicationCommandOptionType,
             },
             Interaction,
@@ -31,8 +27,6 @@ use serenity::{
     prelude::*,
     http::Http,
 };
-use chrono::Duration;
-
 use tracing::{error, info};
 
 struct Database {
@@ -56,14 +50,6 @@ impl Database {
 }
 
 pub struct ShardManagerContainer;
-
-pub struct TorimiesData {
-    pub last_updated: NaiveDateTime,
-}
-
-impl TypeMapKey for TorimiesData {
-    type Value = TorimiesData;
-}
 
 impl TypeMapKey for Database {
     type Value = Arc<Database>;
@@ -125,14 +111,13 @@ impl EventHandler for Handler {
 }
 
 #[group]
+#[commands(update_all_vahtis)]
 struct General;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
     tracing_subscriber::fmt::init();
-
-    let toridata = TorimiesData { last_updated: (chrono::offset::Local::now().naive_local()-Duration::hours(1)) };
 
     let database = Database::new().await;
 
@@ -167,7 +152,6 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<Database>(Arc::new(database));
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
-        data.insert::<TorimiesData>(toridata);
     }
 
     let shard_manager = client.shard_manager.clone();

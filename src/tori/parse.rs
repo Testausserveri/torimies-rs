@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use chrono::NaiveDateTime;
 use html_parser::{Dom, Node};
+use tracing::info;
 use reqwest;
 
 #[derive(Clone)]
@@ -13,7 +14,7 @@ pub struct ToriItem {
     pub price: i64,
 }
 
-pub async fn parse_after(link: &str, after: Option<NaiveDateTime>) -> Vec<ToriItem> {
+pub async fn parse_after(link: &str, after: i64) -> Vec<ToriItem> {
     let mut html = reqwest::get(link).await.unwrap().text().await.unwrap();
     html = html[html.find(r"<body").unwrap()..html.rfind(r"</body>").unwrap()+7].to_string();
     let dom = Dom::parse(&html).unwrap();
@@ -74,7 +75,7 @@ pub async fn parse_after(link: &str, after: Option<NaiveDateTime>) -> Vec<ToriIt
                             match e.children.get(0).unwrap() {
                                 Node::Element(ref ee) => {
                                     match ee.children.get(0) {
-                                        Some(Node::Text(ref s)) => s[..s.find(' ').unwrap()].parse::<i64>().unwrap(),
+                                        Some(Node::Text(ref s)) => s[..s.find(' ').unwrap_or(s.len())].parse::<i64>().unwrap_or(0),
                                         _ => 0
                                     }
                                 },
@@ -113,13 +114,12 @@ pub async fn parse_after(link: &str, after: Option<NaiveDateTime>) -> Vec<ToriIt
         }
         _ => None,
     }).collect();
-    match after {
-        Some(last) => {
-            items.retain(|item| item.published.timestamp() >= last.timestamp());
-            items
-        },
-        None => vec![items[0].clone()]
+    for item in &items {
+        info!("Found following tori-item pre-retain: {}, timestamp: {}", item.url, item.published.timestamp());
     }
+    // FIXME: Don't hardcode -22 hours here, but instead work out why the offset exists
+    items.retain(|item| item.published.timestamp()+(22*3600) >= after);
+    items
 }
 
 fn parse_toridate(ds: &str) -> NaiveDateTime {
@@ -150,6 +150,7 @@ fn parse_toridate(ds: &str) -> NaiveDateTime {
         "jou" => "Dec",
         _ => unreachable!("THIS SHOULD NOT BE A THING: {}", m),
     }).replace('\n', "").replace('\t', "");
+    // FIXME: Don't hardcode year here
     let ds = format!("{} 2021", ds);
     match NaiveDateTime::parse_from_str(&ds, "%d %b %H:%M %Y") {
         Ok(a) => a,
