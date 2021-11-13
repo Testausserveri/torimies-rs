@@ -48,7 +48,7 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
                     );
                     e.field(
                         "Hinta",
-                        item.price.to_string(),
+                        format!("{} €",item.price),
                         true,
                     );
                     e.field(

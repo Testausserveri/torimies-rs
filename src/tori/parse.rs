@@ -2,8 +2,6 @@ use chrono::prelude::*;
 use chrono::Duration;
 use chrono::NaiveDateTime;
 use html_parser::{Dom, Node};
-use tracing::info;
-use reqwest;
 
 #[derive(Clone)]
 pub struct ToriItem {
@@ -113,11 +111,8 @@ pub async fn parse_after(html: String, after: i64) -> Vec<ToriItem> {
         }
         _ => None,
     }).collect();
-    for item in &items {
-        info!("Found following tori-item pre-retain: {}, timestamp: {}", item.url, item.published.timestamp());
-    }
-    // FIXME: Don't hardcode -22 hours here, but instead work out why the offset exists
-    items.retain(|item| item.published.timestamp()+(22*3600) >= after);
+    // FIXME: Parsing times between 24 and 02 yelds a -22 hour offset
+    items.retain(|item| item.published.timestamp() >= after);
     items
 }
 

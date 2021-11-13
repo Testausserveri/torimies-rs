@@ -4,7 +4,7 @@ use tracing::info;
 
 impl Database {
     pub async fn add_vahti_entry(&self, url: &str, userid: i64) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
-        let time = (chrono::Local::now()-chrono::Duration::hours(1)).timestamp();
+        let time = chrono::Local::now().timestamp();
         info!("Lisätään Vahti `{}` käyttäjälle {}", url, userid);
         sqlx::query!(
             "INSERT INTO Vahdit (url, user_id, last_updated) VALUES (?, ?, ?)",
