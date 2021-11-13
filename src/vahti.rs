@@ -1,7 +1,9 @@
-use serenity::client::Context;
+use serenity::{client::Context,http::Http};
 use crate::Database;
 use crate::tori::parse::*;
 use tracing::info;
+
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Vahti {
@@ -22,25 +24,23 @@ pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> String {
     }
 }
 
-pub async fn update_all_vahtis(ctx: &Context) {
-    let db = ctx.data.read().await.get::<Database>().unwrap().clone();
-    update_vahtis(ctx, db.fetch_all_vahtis().await.unwrap()).await;
+pub async fn update_all_vahtis(db: Arc<Database>, http: &Http) {
+    update_vahtis(db.clone(),http, db.fetch_all_vahtis().await.unwrap()).await;
 }
 
-pub async fn update_vahtis(ctx: &Context, vahtis: Vec<Vahti>) {
-    let mut data = ctx.data.write().await;
-    let db = data.get::<Database>().unwrap().clone();
+pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
     let mut currenturl = "".to_string();
     let mut currentitems = Vec::new();
     for vahti in vahtis {
         if currenturl != vahti.url {
             currenturl = vahti.url.clone();
-            currentitems = parse_after(&currenturl, vahti.last_updated).await
+            let html = reqwest::get(&currenturl).await.unwrap().text().await.unwrap();
+            currentitems = parse_after(html, vahti.last_updated).await
         }
         db.vahti_updated(vahti.clone()).await.unwrap();
         for item in &currentitems {
-            let user = ctx.http.get_user(vahti.user_id.try_into().unwrap()).await.unwrap();
-            user.dm(&ctx.http, |m| {
+            let user = http.get_user(vahti.user_id.try_into().unwrap()).await.unwrap();
+            user.dm(http, |m| {
                 m.embed(|e| {
                     e.color(serenity::utils::Color::DARK_GREEN);
                     e.description(

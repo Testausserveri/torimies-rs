@@ -1,9 +1,11 @@
 mod tori;
 mod vahti;
 mod owner;
+pub mod extensions;
 pub mod database;
 
 use std::{collections::HashSet, env, sync::Arc};
+use crate::extensions::ClientContextExt;
 
 use owner::*;
 use vahti::new_vahti;
@@ -27,9 +29,11 @@ use serenity::{
     prelude::*,
     http::Http,
 };
+
+use clokwerk::{Scheduler, TimeUnits};
 use tracing::{error, info};
 
-struct Database {
+pub struct Database {
     database: sqlx::SqlitePool,
 }
 
@@ -156,9 +160,24 @@ async fn main() {
 
     let shard_manager = client.shard_manager.clone();
 
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let mut scheduler = Scheduler::with_tz(chrono::Local);
+
+    let db = client.get_db().await;
+    let http = client.cache_and_http.http.clone();
+
+    vahti::update_all_vahtis(db.to_owned(), &http).await;
+
+    scheduler.every(2.minute()).run(move || {
+        runtime.block_on(vahti::update_all_vahtis(db.to_owned(), &http));
+    });
+
+    let thread_handle = scheduler.watch_thread(std::time::Duration::from_millis(1000));
+
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.expect("Could not register ctrl-c handler");
         shard_manager.lock().await.shutdown_all().await;
+        thread_handle.stop();
     });
 
     if let Err(why) = client.start().await {

@@ -14,9 +14,8 @@ pub struct ToriItem {
     pub price: i64,
 }
 
-pub async fn parse_after(link: &str, after: i64) -> Vec<ToriItem> {
-    let mut html = reqwest::get(link).await.unwrap().text().await.unwrap();
-    html = html[html.find(r"<body").unwrap()..html.rfind(r"</body>").unwrap()+7].to_string();
+pub async fn parse_after(html: String, after: i64) -> Vec<ToriItem> {
+    let html = html[html.find(r"<body").unwrap()..html.rfind(r"</body>").unwrap()+7].to_string();
     let dom = Dom::parse(&html).unwrap();
     let iter = dom.children.get(0).unwrap().into_iter();
 
