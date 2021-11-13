@@ -2,7 +2,7 @@ use serenity::{client::Context,http::Http};
 use crate::Database;
 use crate::tori::parse::*;
 use tracing::info;
-
+use chrono::{Local, TimeZone};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -34,11 +34,10 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
     for vahti in vahtis {
         if currenturl != vahti.url {
             currenturl = vahti.url.clone();
-            let html = reqwest::get(&currenturl).await.unwrap().text().await.unwrap();
-            currentitems = parse_after(html, vahti.last_updated).await
+            currentitems = api_parse_after(&currenturl, vahti.last_updated).await;
         }
         if !currentitems.is_empty() {
-            db.vahti_updated(vahti.clone(), Some(currentitems[0].published.timestamp())).await.unwrap();
+            db.vahti_updated(vahti.clone(), Some(currentitems[0].published)).await.unwrap();
         }
         for item in &currentitems {
             let user = http.get_user(vahti.user_id.try_into().unwrap()).await.unwrap();
@@ -54,8 +53,23 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
                         true,
                     );
                     e.field(
+                        "Myyjä",
+                        item.seller_name.clone(),
+                        true,
+                    );
+                    e.field(
+                        "Sijainti",
+                        item.location.clone(),
+                        true,
+                    );
+                    e.field(
                         "Ilmoitus Jätetty",
-                        item.published.to_string(),
+                        Local.timestamp(item.published, 0).to_string(),
+                        true,
+                    );
+                    e.field(
+                        "Ilmoitustyyppi",
+                        item.ad_type.to_string(),
                         true,
                     );
                     e.image(item.img_url.clone())
