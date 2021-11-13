@@ -55,9 +55,12 @@ impl Database {
             .fetch_all(&self.database)
             .await
     }
-    pub async fn vahti_updated(&self, vahti: Vahti) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+    pub async fn vahti_updated(&self, vahti: Vahti, timestamp: Option<i64>) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
         info!("Vahti päivitetty {} käyttäjälle {}", vahti.url, vahti.user_id);
-        let time = chrono::Local::now().timestamp();
+        let time = match timestamp {
+            Some(a) => a,
+            None => chrono::Local::now().timestamp(),
+        };
         sqlx::query!(
             "UPDATE Vahdit SET last_updated = ? WHERE url = ? AND user_id = ?",
             time,

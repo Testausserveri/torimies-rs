@@ -37,7 +37,9 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
             let html = reqwest::get(&currenturl).await.unwrap().text().await.unwrap();
             currentitems = parse_after(html, vahti.last_updated).await
         }
-        db.vahti_updated(vahti.clone()).await.unwrap();
+        if !currentitems.is_empty() {
+            db.vahti_updated(vahti.clone(), Some(currentitems[0].published.timestamp())).await.unwrap();
+        }
         for item in &currentitems {
             let user = http.get_user(vahti.user_id.try_into().unwrap()).await.unwrap();
             user.dm(http, |m| {

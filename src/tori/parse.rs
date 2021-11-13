@@ -112,7 +112,7 @@ pub async fn parse_after(html: String, after: i64) -> Vec<ToriItem> {
         _ => None,
     }).collect();
     // FIXME: Parsing times between 24 and 02 yelds a -22 hour offset
-    items.retain(|item| item.published.timestamp() >= after);
+    items.retain(|item| item.published.timestamp() > after);
     items
 }
 
