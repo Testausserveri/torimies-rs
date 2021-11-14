@@ -1,15 +1,16 @@
 pub mod database;
 pub mod extensions;
+mod itemhistory;
 mod owner;
 mod tori;
 mod vahti;
-mod itemhistory;
 
 #[macro_use]
 extern crate tracing;
 
 use std::{collections::HashSet, env, sync::Arc};
 
+use owner::*;
 use serenity::{
     async_trait,
     client::bridge::gateway::ShardManager,
@@ -26,11 +27,11 @@ use serenity::{
     },
     prelude::*,
 };
-use owner::*;
 
-use vahti::new_vahti;
 use crate::extensions::ClientContextExt;
 use database::Database;
+use itemhistory::ItemHistory;
+use vahti::new_vahti;
 
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -77,6 +78,7 @@ impl EventHandler for Handler {
                 .unwrap()
         };
     }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
         ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
@@ -116,6 +118,7 @@ async fn main() {
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
     let database = Database::new().await;
+    let itemhistory = ItemHistory::new();
 
     let token = env::var("DISCORD_TOKEN").expect("Expected token in the environment");
 
@@ -150,6 +153,7 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<Database>(Arc::new(database));
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
+        data.insert::<ItemHistory>(Arc::new(Mutex::new(itemhistory)));
     }
 
     let shard_manager = client.shard_manager.clone();
@@ -157,11 +161,18 @@ async fn main() {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let mut scheduler = Scheduler::with_tz(chrono::Local);
 
-    let db = client.get_db().await;
     let http = client.cache_and_http.http.clone();
+    let data = client.data.clone();
+
+    let database = client.get_db().await;
+    let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(1.minute()).run(move || {
-        runtime.block_on(vahti::update_all_vahtis(db.to_owned(), &http));
+        runtime.block_on(vahti::update_all_vahtis(
+            database.to_owned(),
+            &mut itemhistory,
+            &http,
+        ));
     });
 
     let thread_handle = scheduler.watch_thread(std::time::Duration::from_millis(1000));

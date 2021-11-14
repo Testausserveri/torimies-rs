@@ -10,6 +10,7 @@ pub struct ToriItem {
     pub seller_name: String,
     pub location: String,
     pub ad_type: String,
+    pub ad_id: i64,
 }
 
 pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
@@ -56,6 +57,11 @@ pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
                 .as_str()
                 .unwrap_or("")
                 .to_string();
+            let ad_id = ad_object.clone()["list_id_code"]
+                .as_str()
+                .unwrap()
+                .parse::<i64>()
+                .unwrap();
             items.push(ToriItem {
                 title,
                 url,
@@ -65,6 +71,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
                 seller_name,
                 location,
                 ad_type,
+                ad_id,
             });
         }
     }

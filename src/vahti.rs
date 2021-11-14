@@ -1,5 +1,7 @@
 use crate::tori::parse::*;
 use crate::Database;
+use crate::ItemHistory;
+use crate::Mutex;
 use chrono::{Local, TimeZone};
 use serenity::{client::Context, http::Http};
 use std::sync::Arc;
@@ -27,11 +29,22 @@ pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> String {
     }
 }
 
-pub async fn update_all_vahtis(db: Arc<Database>, http: &Http) {
-    update_vahtis(db.clone(), http, db.fetch_all_vahtis().await.unwrap()).await;
+pub async fn update_all_vahtis(
+    db: Arc<Database>,
+    itemhistory: &mut Arc<Mutex<ItemHistory>>,
+    http: &Http,
+) {
+    itemhistory.lock().await.purge_old();
+    let vahtis = db.fetch_all_vahtis().await.unwrap();
+    update_vahtis(db, itemhistory, http, vahtis).await;
 }
 
-pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
+pub async fn update_vahtis(
+    db: Arc<Database>,
+    itemhistory: &mut Arc<Mutex<ItemHistory>>,
+    http: &Http,
+    vahtis: Vec<Vahti>,
+) {
     let mut currenturl = String::new();
     let mut currentitems = Vec::new();
     let test = std::time::Instant::now();
@@ -57,11 +70,20 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
                 .await;
             }
             if !currentitems.is_empty() {
-                db.vahti_updated(vahti.clone(),Some(currentitems[0].published))
+                db.vahti_updated(vahti.clone(), Some(currentitems[0].published))
                     .await
                     .unwrap();
             }
+            info!("Got {} items", currentitems.len());
             for item in currentitems.iter().rev() {
+                if itemhistory.lock().await.contains(item.ad_id) {
+                    info!("Item {} in itemhistory! Skipping!", item.ad_id);
+                    continue;
+                }
+                itemhistory
+                    .lock()
+                    .await
+                    .add_item(item.ad_id, chrono::Local::now().timestamp());
                 let user = http
                     .get_user(vahti.user_id.try_into().unwrap())
                     .await
@@ -87,5 +109,5 @@ pub async fn update_vahtis(db: Arc<Database>, http: &Http, vahtis: Vec<Vahti>) {
             }
         }
     }
-    info!("Finished requests in {} ms",test.elapsed().as_millis());
+    info!("Finished requests in {} ms", test.elapsed().as_millis());
 }

@@ -85,7 +85,10 @@ impl Database {
             vahti.url, vahti.user_id
         );
         let time = timestamp.unwrap_or(chrono::Local::now().timestamp());
-        info!("Newest item {}s ago",chrono::Local::now().timestamp() - time);
+        info!(
+            "Newest item {}s ago",
+            chrono::Local::now().timestamp() - time
+        );
         sqlx::query!(
             "UPDATE Vahdit SET last_updated = ? WHERE url = ? AND user_id = ?",
             time,
