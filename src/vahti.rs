@@ -97,7 +97,7 @@ pub async fn update_vahtis(
                         e.field("Sijainti", item.location.clone(), true);
                         e.field(
                             "Ilmoitus Jätetty",
-                            Local.timestamp(item.published, 0).to_string(),
+                            Local.timestamp(item.published, 0).format("%d/%m/%Y %R"),
                             true,
                         );
                         e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
