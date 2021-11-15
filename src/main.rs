@@ -1,63 +1,45 @@
+pub mod database;
+pub mod extensions;
+mod itemhistory;
+mod owner;
 mod tori;
 mod vahti;
-mod owner;
-pub mod extensions;
-pub mod database;
+
+#[macro_use]
+extern crate tracing;
 
 use std::{collections::HashSet, env, sync::Arc};
-use crate::extensions::ClientContextExt;
 
 use owner::*;
-use vahti::new_vahti;
 use serenity::{
     async_trait,
-    framework::standard::*,
+    client::bridge::gateway::ShardManager,
     framework::standard::macros::group,
+    framework::standard::*,
+    http::Http,
     model::{
         event::ResumedEvent,
         gateway::Ready,
         interactions::{
-            application_command::{
-                ApplicationCommand,
-                ApplicationCommandOptionType,
-            },
-            Interaction,
-            InteractionResponseType,
+            application_command::{ApplicationCommand, ApplicationCommandOptionType},
+            Interaction, InteractionResponseType,
         },
     },
-    client::bridge::gateway::ShardManager,
     prelude::*,
-    http::Http,
 };
 
+use crate::extensions::ClientContextExt;
+use database::Database;
+use itemhistory::ItemHistory;
+use vahti::new_vahti;
+use vahti::remove_vahti;
+
 use clokwerk::{Scheduler, TimeUnits};
+
 use tracing::{error, info};
-
-pub struct Database {
-    database: sqlx::SqlitePool,
-}
-
-impl Database {
-    pub async fn new() -> Database {
-        let database = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect_with(
-            sqlx::sqlite::SqliteConnectOptions::new()
-                .filename("database.sqlite")
-                .create_if_missing(true),
-        )
-        .await
-        .expect("Couldn't connect to database");
-        sqlx::migrate!("./migrations").run(&database).await.expect("Couldn't run database migrations");
-        Self { database }
-    }
-}
+use tracing_subscriber::FmtSubscriber;
 
 pub struct ShardManagerContainer;
-
-impl TypeMapKey for Database {
-    type Value = Arc<Database>;
-}
 
 impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
@@ -78,36 +60,69 @@ impl EventHandler for Handler {
                                 let tempurl = a.value.as_ref().unwrap();
                                 url = tempurl.as_str().unwrap().to_string();
                             }
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
                     new_vahti(&ctx, &url, command.user.id.0).await
-                },
+                }
+                "poistavahti" => {
+                    let mut url: String = "".to_string();
+                    for a in &command.data.options {
+                        match a.name.as_str() {
+                            "url" => {
+                                let tempurl = a.value.as_ref().unwrap();
+                                url = tempurl.as_str().unwrap().to_string();
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    remove_vahti(&ctx, &url, command.user.id.0).await
+                }
                 _ => {
                     unreachable!();
                 }
             };
-            command.create_interaction_response(&ctx.http, |response| {
+            command
+                .create_interaction_response(&ctx.http, |response| {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| message.content(content))
-                }).await.unwrap()
+                })
+                .await
+                .unwrap()
         };
     }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
         ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-            commands
-                .create_application_command(|command| {
-                    command.name("vahti").description("Luo uusi vahti")
-                        .create_option(|option| {
-                            option.name("url")
-                                .description("Hakulinkki")
-                                .required(true)
-                                .kind(ApplicationCommandOptionType::String)
-                        })
-                })
-        }).await.unwrap();
+            commands.create_application_command(|command| {
+                command
+                    .name("vahti")
+                    .description("Luo uusi vahti")
+                    .create_option(|option| {
+                        option
+                            .name("url")
+                            .description("Hakulinkki")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_application_command(|command| {
+                command
+                    .name("poistavahti")
+                    .description("Poista olemassaoleva vahti")
+                    .create_option(|option| {
+                        option
+                            .name("url")
+                            .description("Hakulinkki")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+        })
+        .await
+        .unwrap();
     }
     async fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed");
@@ -121,9 +136,15 @@ struct General;
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
-    tracing_subscriber::fmt::init();
+
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(tracing::Level::INFO)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
     let database = Database::new().await;
+    let itemhistory = ItemHistory::new();
 
     let token = env::var("DISCORD_TOKEN").expect("Expected token in the environment");
 
@@ -143,19 +164,22 @@ async fn main() {
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
 
-    let framework = StandardFramework::new().configure(|c| c.owners(owner).prefix("!"))
+    let framework = StandardFramework::new()
+        .configure(|c| c.owners(owner).prefix("!"))
         .group(&GENERAL_GROUP);
 
     let mut client = Client::builder(&token)
         .application_id(application_id)
         .framework(framework)
         .event_handler(Handler)
-        .await.expect("Error while creating client");
+        .await
+        .expect("Error while creating client");
 
     {
         let mut data = client.data.write().await;
         data.insert::<Database>(Arc::new(database));
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
+        data.insert::<ItemHistory>(Arc::new(Mutex::new(itemhistory)));
     }
 
     let shard_manager = client.shard_manager.clone();
@@ -163,19 +187,26 @@ async fn main() {
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let mut scheduler = Scheduler::with_tz(chrono::Local);
 
-    let db = client.get_db().await;
     let http = client.cache_and_http.http.clone();
+    let data = client.data.clone();
 
-    vahti::update_all_vahtis(db.to_owned(), &http).await;
+    let database = client.get_db().await;
+    let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
-    scheduler.every(2.minute()).run(move || {
-        runtime.block_on(vahti::update_all_vahtis(db.to_owned(), &http));
+    scheduler.every(1.minute()).run(move || {
+        runtime.block_on(vahti::update_all_vahtis(
+            database.to_owned(),
+            &mut itemhistory,
+            &http,
+        ));
     });
 
     let thread_handle = scheduler.watch_thread(std::time::Duration::from_millis(1000));
 
     tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.expect("Could not register ctrl-c handler");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Could not register ctrl-c handler");
         shard_manager.lock().await.shutdown_all().await;
         thread_handle.stop();
     });
