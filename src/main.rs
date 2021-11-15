@@ -32,6 +32,7 @@ use crate::extensions::ClientContextExt;
 use database::Database;
 use itemhistory::ItemHistory;
 use vahti::new_vahti;
+use vahti::remove_vahti;
 
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -64,6 +65,19 @@ impl EventHandler for Handler {
                     }
                     new_vahti(&ctx, &url, command.user.id.0).await
                 }
+                "poistavahti" => {
+                    let mut url: String = "".to_string();
+                    for a in &command.data.options {
+                        match a.name.as_str() {
+                            "url" => {
+                                let tempurl = a.value.as_ref().unwrap();
+                                url = tempurl.as_str().unwrap().to_string();
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    remove_vahti(&ctx, &url, command.user.id.0).await
+                }
                 _ => {
                     unreachable!();
                 }
@@ -86,6 +100,18 @@ impl EventHandler for Handler {
                 command
                     .name("vahti")
                     .description("Luo uusi vahti")
+                    .create_option(|option| {
+                        option
+                            .name("url")
+                            .description("Hakulinkki")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_application_command(|command| {
+                command
+                    .name("poistavahti")
+                    .description("Poista olemassaoleva vahti")
                     .create_option(|option| {
                         option
                             .name("url")

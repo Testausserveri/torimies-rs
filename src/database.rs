@@ -43,6 +43,20 @@ impl Database {
         .execute(&self.database)
         .await
     }
+    pub async fn remove_vahti_entry(
+        &self,
+        url: &str,
+        userid: i64,
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+        info!("Poistetaan Vahti `{}` käyttältä {}", url, userid);
+        sqlx::query!(
+            "DELETE FROM Vahdit WHERE url = ? AND user_id = ?",
+            url,
+            userid,
+        )
+        .execute(&self.database)
+        .await
+    }
     pub async fn fetch_vahti_entries_by_url(&self, url: &str) -> Result<Vec<Vahti>, sqlx::Error> {
         info!("Haetaan Vahdit {}...", url);
         sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", url)

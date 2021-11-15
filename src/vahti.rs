@@ -29,6 +29,21 @@ pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> String {
     }
 }
 
+pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> String {
+    let db = ctx.data.read().await.get::<Database>().unwrap().clone();
+    if db
+        .fetch_vahti(url, userid.try_into().unwrap())
+        .await.is_err()
+    {
+        info!("Not removing a nonexistant vahti!");
+        return "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein".to_string();
+    }
+    match db.remove_vahti_entry(url, userid.try_into().unwrap()).await {
+        Ok(_) => "Vahti poistettu!".to_string(),
+        Err(_) => "Virhe tapahtui vahdin poistamisessa!".to_string(),
+    }
+}
+
 pub async fn update_all_vahtis(
     db: Arc<Database>,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
