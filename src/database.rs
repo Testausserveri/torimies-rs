@@ -33,7 +33,7 @@ impl Database {
         userid: i64,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
         let time = chrono::Local::now().timestamp();
-        info!("Lisätään Vahti `{}` käyttäjälle {}", url, userid);
+        info!("Adding Vahti `{}` for the user {}", url, userid);
         sqlx::query!(
             "INSERT INTO Vahdit (url, user_id, last_updated) VALUES (?, ?, ?)",
             url,
@@ -48,7 +48,7 @@ impl Database {
         url: &str,
         userid: i64,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
-        info!("Poistetaan Vahti `{}` käyttältä {}", url, userid);
+        info!("Removing Vahti `{}` from the user {}", url, userid);
         sqlx::query!(
             "DELETE FROM Vahdit WHERE url = ? AND user_id = ?",
             url,
@@ -58,7 +58,7 @@ impl Database {
         .await
     }
     pub async fn fetch_vahti_entries_by_url(&self, url: &str) -> Result<Vec<Vahti>, sqlx::Error> {
-        info!("Haetaan Vahdit {}...", url);
+        info!("Fetching Vahtis {}...", url);
         sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", url)
             .fetch_all(&self.database)
             .await
@@ -67,13 +67,13 @@ impl Database {
         &self,
         userid: i64,
     ) -> Result<Vec<Vahti>, sqlx::Error> {
-        info!("Haetaan käyttäjän {} Vahdit...", userid);
+        info!("Fetching the Vahtis of user {}...", userid);
         sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", userid)
             .fetch_all(&self.database)
             .await
     }
     pub async fn fetch_vahti(&self, url: &str, userid: i64) -> Result<Vahti, sqlx::Error> {
-        info!("Haetaan käyttäjän {} Vahti {}...", userid, url);
+        info!("Fetching the user {}'s Vahti {}...", userid, url);
         sqlx::query_as!(
             Vahti,
             "SELECT * FROM Vahdit WHERE url = ? AND user_id = ?",
@@ -84,7 +84,7 @@ impl Database {
         .await
     }
     pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, sqlx::Error> {
-        info!("Haetaan kaikki Vahdit...");
+        info!("Fetching all Vahtis...");
         sqlx::query_as!(Vahti, "SELECT * FROM Vahdit")
             .fetch_all(&self.database)
             .await
@@ -95,7 +95,7 @@ impl Database {
         timestamp: Option<i64>,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
         info!(
-            "Vahti päivitetty {} käyttäjälle {}",
+            "Vahti {} for the user {}",
             vahti.url, vahti.user_id
         );
         let time = timestamp.unwrap_or(chrono::Local::now().timestamp());
