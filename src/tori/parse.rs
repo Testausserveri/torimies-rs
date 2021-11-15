@@ -14,7 +14,6 @@ pub struct ToriItem {
 }
 
 pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
-    // TODO: This currently only supports the search term (and maybe something else I'm not sure)
     let response_json: Value = serde_json::from_str(search).unwrap();
     let mut items = Vec::new();
     if let Some(ads) = response_json["list_ads"].as_array() {
