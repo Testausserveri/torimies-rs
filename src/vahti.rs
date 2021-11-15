@@ -76,14 +76,14 @@ pub async fn update_vahtis(
             }
             info!("Got {} items", currentitems.len());
             for item in currentitems.iter().rev() {
-                if itemhistory.lock().await.contains(item.ad_id) {
+                if itemhistory.lock().await.contains(item.ad_id, vahti.user_id) {
                     info!("Item {} in itemhistory! Skipping!", item.ad_id);
                     continue;
                 }
                 itemhistory
                     .lock()
                     .await
-                    .add_item(item.ad_id, chrono::Local::now().timestamp());
+                    .add_item(item.ad_id,vahti.user_id, chrono::Local::now().timestamp());
                 let user = http
                     .get_user(vahti.user_id.try_into().unwrap())
                     .await
