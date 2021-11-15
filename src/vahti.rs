@@ -52,8 +52,9 @@ pub async fn update_vahtis(
         let vahtichunks = vahtichunks.iter().zip(vahtichunks.iter().map(|vahti| {
             if currenturl != vahti.url {
                 currenturl = vahti.url.clone();
-                let url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
+                let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
                     + &currenturl.to_owned()[currenturl.find('?').unwrap()..];
+                url = url.replace("cg=", "category=");
                 info!("Sending query: {}", url);
                 let response = reqwest::get(url);
                 Some(response)
