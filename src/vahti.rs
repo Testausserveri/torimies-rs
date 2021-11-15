@@ -131,7 +131,7 @@ pub async fn update_vahtis(
                 user.dm(http, |m| {
                     m.embed(|e| {
                         e.color(serenity::utils::Color::DARK_GREEN);
-                        e.description(format!("[{}]({})", item.title, item.url));
+                        e.description(format!("[{}]({})\n[Hakulinkki]({})", item.title, item.url, vahti.url));
                         e.field("Hinta", format!("{} €", item.price), true);
                         e.field("Myyjä", item.seller_name.clone(), true);
                         e.field("Sijainti", item.location.clone(), true);
