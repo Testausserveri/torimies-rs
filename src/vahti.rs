@@ -54,7 +54,31 @@ pub async fn update_vahtis(
                 currenturl = vahti.url.clone();
                 let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
                     + &currenturl.to_owned()[currenturl.find('?').unwrap()..];
+                let mut startprice: String = "".to_string();
+                let mut endprice: String = "".to_string();
+                let mut price_set = false;
+                if url.contains("ps=") {
+                    let index = url.find("ps=").unwrap();
+                    let endindex = url[index..].find('&').unwrap_or(url.len()-index);
+                    startprice = url[index+3..endindex+index].to_string();
+                    price_set = true;
+                }
+                if url.contains("pe=") {
+                    let index = url.find("pe=").unwrap();
+                    let endindex = url[index..].find('&').unwrap_or(url.len()-index);
+                    endprice = url[index+3..endindex+index].to_string();
+                    price_set = true;
+                }
                 url = url.replace("cg=", "category=");
+                // because in the API category=0 yealds no results and in the search it just means
+                // no category was specified
+                url = url.replace("&category=0", "");
+                url = url.replace("st=", "ad_type=");
+                url = url.replace("m=", "area=");
+                url = url.replace("ca=", "region=");
+                if price_set {
+                    url = url + &format!("&suborder={}-{}", &startprice, &endprice);
+                }
                 info!("Sending query: {}", url);
                 let response = reqwest::get(url);
                 Some(response)
