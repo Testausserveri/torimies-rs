@@ -91,6 +91,7 @@ pub async fn update_vahtis(
                 url = url.replace("st=", "ad_type=");
                 url = url.replace("m=", "area=");
                 url = url.replace("ca=", "region=");
+                url = url.replace("_s", ""); // FIXME: not a good solution
                 if price_set {
                     url = url + &format!("&suborder={}-{}", &startprice, &endprice);
                 }
