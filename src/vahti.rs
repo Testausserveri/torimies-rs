@@ -67,9 +67,27 @@ fn vahti_to_api(vahti: &str) -> String {
     // because in the API category=0 yealds no results and in the search it just means
     // no category was specified
     url = url.replace("&category=0", "");
+    if url.contains("w=") {
+        let region;
+        let index = url.find("w=").unwrap();
+        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
+        let num = url[index+2..endindex+index].parse::<i32>().unwrap();
+        if num >= 100 {
+            region = num-100;
+        } else if url.contains("ca=") {
+            let nindex = url.find("ca=").unwrap();
+            let nendindex = url[nindex..].find('&').unwrap_or(url.len()-nindex);
+            let num = url[nindex+3..nendindex+nindex].parse::<i32>().unwrap();
+            region = num;
+        } else {
+            region = num;
+        }
+        url = url.replace(&url[index..endindex+index], &format!("region={}", region));
+    } else {
+        url = url.replace("ca=", "region=");
+    }
     url = url.replace("st=", "ad_type=");
     url = url.replace("m=", "area=");
-    url = url.replace("ca=", "region=");
     url = url.replace("_s", ""); // FIXME: not a good solution
     if price_set {
         url = url + &format!("&suborder={}-{}", &startprice, &endprice);
