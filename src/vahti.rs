@@ -5,6 +5,7 @@ use crate::Mutex;
 use chrono::{Local, TimeZone};
 use serenity::{client::Context, http::Http};
 use std::sync::Arc;
+use serde_json::Value;
 
 #[derive(Clone)]
 pub struct Vahti {
@@ -44,6 +45,59 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> String {
     }
 }
 
+fn vahti_to_api(vahti: &str) -> String {
+    let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
+        + &vahti.to_owned()[vahti.find('?').unwrap()..];
+    let mut startprice: String = "".to_string();
+    let mut endprice: String = "".to_string();
+    let mut price_set = false;
+    if url.contains("ps=") {
+        let index = url.find("ps=").unwrap();
+        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
+        startprice = url[index+3..endindex+index].to_string();
+        price_set = true;
+   }
+    if url.contains("pe=") {
+        let index = url.find("pe=").unwrap();
+        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
+        endprice = url[index+3..endindex+index].to_string();
+        price_set = true;
+    }
+    url = url.replace("cg=", "category=");
+    // because in the API category=0 yealds no results and in the search it just means
+    // no category was specified
+    url = url.replace("&category=0", "");
+    url = url.replace("st=", "ad_type=");
+    url = url.replace("m=", "area=");
+    url = url.replace("ca=", "region=");
+    url = url.replace("_s", ""); // FIXME: not a good solution
+    if price_set {
+        url = url + &format!("&suborder={}-{}", &startprice, &endprice);
+    }
+    url
+}
+
+pub async fn is_valid_url(url: &str) -> bool {
+    if !url.starts_with("https://www.tori.fi") {
+        return false;
+    }
+    if !url.contains('?') {
+        return false;
+    }
+    let url = vahti_to_api(url);
+    let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
+    let response_json: Value = serde_json::from_str(&response).unwrap();
+    if let Some(counter_map) = response_json["counter_map"].as_object() {
+        if let Some(amount) = counter_map["all"].as_i64() {
+            amount > 0
+        } else {
+            false
+        }
+    } else {
+       false
+    }
+}
+
 pub async fn update_all_vahtis(
     db: Arc<Database>,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
@@ -67,34 +121,7 @@ pub async fn update_vahtis(
         let vahtichunks = vahtichunks.iter().zip(vahtichunks.iter().map(|vahti| {
             if currenturl != vahti.url {
                 currenturl = vahti.url.clone();
-                let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
-                    + &currenturl.to_owned()[currenturl.find('?').unwrap()..];
-                let mut startprice: String = "".to_string();
-                let mut endprice: String = "".to_string();
-                let mut price_set = false;
-                if url.contains("ps=") {
-                    let index = url.find("ps=").unwrap();
-                    let endindex = url[index..].find('&').unwrap_or(url.len()-index);
-                    startprice = url[index+3..endindex+index].to_string();
-                    price_set = true;
-                }
-                if url.contains("pe=") {
-                    let index = url.find("pe=").unwrap();
-                    let endindex = url[index..].find('&').unwrap_or(url.len()-index);
-                    endprice = url[index+3..endindex+index].to_string();
-                    price_set = true;
-                }
-                url = url.replace("cg=", "category=");
-                // because in the API category=0 yealds no results and in the search it just means
-                // no category was specified
-                url = url.replace("&category=0", "");
-                url = url.replace("st=", "ad_type=");
-                url = url.replace("m=", "area=");
-                url = url.replace("ca=", "region=");
-                url = url.replace("_s", ""); // FIXME: not a good solution
-                if price_set {
-                    url = url + &format!("&suborder={}-{}", &startprice, &endprice);
-                }
+                let url = vahti_to_api(&currenturl);
                 info!("Sending query: {}", url);
                 let response = reqwest::get(url);
                 Some(response)

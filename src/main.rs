@@ -33,6 +33,7 @@ use database::Database;
 use itemhistory::ItemHistory;
 use vahti::new_vahti;
 use vahti::remove_vahti;
+use vahti::is_valid_url;
 
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -63,7 +64,11 @@ impl EventHandler for Handler {
                             _ => unreachable!(),
                         }
                     }
-                    new_vahti(&ctx, &url, command.user.id.0).await
+                    if !is_valid_url(&url).await {
+                        "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
+                    } else {
+                        new_vahti(&ctx, &url, command.user.id.0).await
+                    }
                 }
                 "poistavahti" => {
                     let mut url: String = "".to_string();
