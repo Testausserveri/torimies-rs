@@ -158,6 +158,11 @@ async fn main() {
         .parse()
         .expect("Application id is invalid");
 
+    let update_interval: u32 = env::var("UPDATE_INTERVAL")
+        .unwrap_or_else(|_| "60".to_string()) // Default to 1 minute
+        .parse()
+        .expect("Update interval is invalid");
+
     let http = Http::new_with_token(&token);
 
     let (owner, _bot_id) = match http.get_current_application_info().await {
@@ -198,7 +203,7 @@ async fn main() {
     let database = client.get_db().await;
     let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
-    scheduler.every(1.minute()).run(move || {
+    scheduler.every(update_interval.second()).run(move || {
         runtime.block_on(vahti::update_all_vahtis(
             database.to_owned(),
             &mut itemhistory,
