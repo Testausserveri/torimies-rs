@@ -74,15 +74,14 @@ fn vahti_to_api(vahti: &str) -> String {
         let num = url[index+2..endindex+index].parse::<i32>().unwrap();
         if num >= 100 {
             region = num-100;
+            url = url.replace(&url[index..endindex+index], &format!("region={}", region));
         } else if url.contains("ca=") {
             let nindex = url.find("ca=").unwrap();
             let nendindex = url[nindex..].find('&').unwrap_or(url.len()-nindex);
             let num = url[nindex+3..nendindex+nindex].parse::<i32>().unwrap();
             region = num;
-        } else {
-            region = num;
+            url = url.replace(&url[index..endindex+index], &format!("region={}", region));
         }
-        url = url.replace(&url[index..endindex+index], &format!("region={}", region));
     } else {
         url = url.replace("ca=", "region=");
     }
