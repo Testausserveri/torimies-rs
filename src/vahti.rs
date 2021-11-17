@@ -139,8 +139,8 @@ pub async fn update_vahtis(
             if currenturl != vahti.url {
                 currenturl = vahti.url.clone();
                 let url = vahti_to_api(&currenturl);
-                info!("Sending query: {}", url);
-                let response = reqwest::get(url);
+                info!("Sending query: {}&lim=10", url);
+                let response = reqwest::get(url+"&lim=10");
                 Some(response)
             } else {
                 None
@@ -149,10 +149,17 @@ pub async fn update_vahtis(
         for (vahti, request) in vahtichunks {
             if let Some(req) = request {
                 currentitems = api_parse_after(
-                    &req.await.unwrap().text().await.unwrap(),
+                    &req.await.unwrap().text().await.unwrap().clone(),
                     vahti.last_updated,
                 )
                 .await;
+                if currentitems.len() == 10 {
+                    info!("Unsure on whether we got all the items... Querying for all of them now");
+                    currentitems = api_parse_after(
+                        &reqwest::get(vahti_to_api(&vahti.url)).await.unwrap().text().await.unwrap().clone(),
+                        vahti.last_updated
+                        ).await
+                }
             }
             if !currentitems.is_empty() {
                 db.vahti_updated(vahti.clone(), Some(currentitems[0].published))
