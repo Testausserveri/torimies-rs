@@ -101,7 +101,7 @@ pub async fn is_valid_url(url: &str) -> bool {
     if !url.contains('?') {
         return false;
     }
-    let url = vahti_to_api(url);
+    let url = vahti_to_api(url)+"&lim=0";
     let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
     let response_json: Value = serde_json::from_str(&response).unwrap();
     if let Some(counter_map) = response_json["counter_map"].as_object() {
