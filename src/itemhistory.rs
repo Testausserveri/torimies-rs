@@ -32,7 +32,7 @@ impl ItemHistory {
         self.items = self
             .items
             .iter()
-            .filter(|(_, _, timestamp)| timestamp > &(chrono::Local::now().timestamp() - 600))
+            .filter(|(_, _, timestamp)| timestamp > &(chrono::Local::now().timestamp() - 1000))
             .map(|t| t.to_owned())
             .collect();
     }
