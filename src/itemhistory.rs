@@ -25,7 +25,9 @@ impl ItemHistory {
     }
 
     pub fn contains(&self, id: i64, user_id: i64) -> bool {
-        self.items.iter().any(|(iid, uid, _)| iid == &id && uid == &user_id)
+        self.items
+            .iter()
+            .any(|(iid, uid, _)| iid == &id && uid == &user_id)
     }
 
     pub fn purge_old(&mut self) {

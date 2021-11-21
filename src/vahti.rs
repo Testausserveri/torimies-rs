@@ -3,9 +3,10 @@ use crate::Database;
 use crate::ItemHistory;
 use crate::Mutex;
 use chrono::{Local, TimeZone};
+use serde_json::Value;
+use serenity::model::interactions::message_component::ButtonStyle;
 use serenity::{client::Context, http::Http};
 use std::sync::Arc;
-use serde_json::Value;
 
 #[derive(Clone)]
 pub struct Vahti {
@@ -34,10 +35,12 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> String {
     let db = ctx.data.read().await.get::<Database>().unwrap().clone();
     if db
         .fetch_vahti(url, userid.try_into().unwrap())
-        .await.is_err()
+        .await
+        .is_err()
     {
         info!("Not removing a nonexistant vahti!");
-        return "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein".to_string();
+        return "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein"
+            .to_string();
     }
     match db.remove_vahti_entry(url, userid.try_into().unwrap()).await {
         Ok(_) => "Vahti poistettu!".to_string(),
@@ -53,14 +56,14 @@ fn vahti_to_api(vahti: &str) -> String {
     let mut price_set = false;
     if url.contains("ps=") {
         let index = url.find("ps=").unwrap();
-        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
-        startprice = url[index+3..endindex+index].to_string();
+        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
+        startprice = url[index + 3..endindex + index].to_string();
         price_set = true;
-   }
+    }
     if url.contains("pe=") {
         let index = url.find("pe=").unwrap();
-        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
-        endprice = url[index+3..endindex+index].to_string();
+        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
+        endprice = url[index + 3..endindex + index].to_string();
         price_set = true;
     }
     url = url.replace("cg=", "category=");
@@ -70,17 +73,17 @@ fn vahti_to_api(vahti: &str) -> String {
     if url.contains("w=") {
         let region;
         let index = url.find("w=").unwrap();
-        let endindex = url[index..].find('&').unwrap_or(url.len()-index);
-        let num = url[index+2..endindex+index].parse::<i32>().unwrap();
+        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
+        let num = url[index + 2..endindex + index].parse::<i32>().unwrap();
         if num >= 100 {
-            region = num-100;
-            url = url.replace(&url[index..endindex+index], &format!("region={}", region));
+            region = num - 100;
+            url = url.replace(&url[index..endindex + index], &format!("region={}", region));
         } else if url.contains("ca=") {
             let nindex = url.find("ca=").unwrap();
-            let nendindex = url[nindex..].find('&').unwrap_or(url.len()-nindex);
-            let num = url[nindex+3..nendindex+nindex].parse::<i32>().unwrap();
+            let nendindex = url[nindex..].find('&').unwrap_or(url.len() - nindex);
+            let num = url[nindex + 3..nendindex + nindex].parse::<i32>().unwrap();
             region = num;
-            url = url.replace(&url[index..endindex+index], &format!("region={}", region));
+            url = url.replace(&url[index..endindex + index], &format!("region={}", region));
         }
     } else {
         url = url.replace("ca=", "region=");
@@ -101,7 +104,7 @@ pub async fn is_valid_url(url: &str) -> bool {
     if !url.contains('?') {
         return false;
     }
-    let url = vahti_to_api(url)+"&lim=0";
+    let url = vahti_to_api(url) + "&lim=0";
     let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
     let response_json: Value = serde_json::from_str(&response).unwrap();
     if let Some(counter_map) = response_json["counter_map"].as_object() {
@@ -111,7 +114,7 @@ pub async fn is_valid_url(url: &str) -> bool {
             false
         }
     } else {
-       false
+        false
     }
 }
 
@@ -140,7 +143,7 @@ pub async fn update_vahtis(
                 currenturl = vahti.url.clone();
                 let url = vahti_to_api(&currenturl);
                 info!("Sending query: {}&lim=10", url);
-                let response = reqwest::get(url+"&lim=10");
+                let response = reqwest::get(url + "&lim=10");
                 Some(response)
             } else {
                 None
@@ -156,9 +159,16 @@ pub async fn update_vahtis(
                 if currentitems.len() == 10 {
                     info!("Unsure on whether we got all the items... Querying for all of them now");
                     currentitems = api_parse_after(
-                        &reqwest::get(vahti_to_api(&vahti.url)).await.unwrap().text().await.unwrap().clone(),
-                        vahti.last_updated
-                        ).await
+                        &reqwest::get(vahti_to_api(&vahti.url))
+                            .await
+                            .unwrap()
+                            .text()
+                            .await
+                            .unwrap()
+                            .clone(),
+                        vahti.last_updated,
+                    )
+                    .await
                 }
             }
             if !currentitems.is_empty() {
@@ -172,10 +182,11 @@ pub async fn update_vahtis(
                     info!("Item {} in itemhistory! Skipping!", item.ad_id);
                     continue;
                 }
-                itemhistory
-                    .lock()
-                    .await
-                    .add_item(item.ad_id,vahti.user_id, chrono::Local::now().timestamp());
+                itemhistory.lock().await.add_item(
+                    item.ad_id,
+                    vahti.user_id,
+                    chrono::Local::now().timestamp(),
+                );
                 let user = http
                     .get_user(vahti.user_id.try_into().unwrap())
                     .await
@@ -183,7 +194,10 @@ pub async fn update_vahtis(
                 user.dm(http, |m| {
                     m.embed(|e| {
                         e.color(serenity::utils::Color::DARK_GREEN);
-                        e.description(format!("[{}]({})\n[Hakulinkki]({})", item.title, item.url, vahti.url));
+                        e.description(format!(
+                            "[{}]({})\n[Hakulinkki]({})",
+                            item.title, item.url, vahti.url
+                        ));
                         e.field("Hinta", format!("{} €", item.price), true);
                         e.field("Myyjä", item.seller_name.clone(), true);
                         e.field("Sijainti", item.location.clone(), true);
@@ -194,6 +208,20 @@ pub async fn update_vahtis(
                         );
                         e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
                         e.image(item.img_url.clone())
+                    });
+                    m.components(|c| {
+                        c.create_action_row(|r| {
+                            r.create_button(|b| {
+                                b.label("Avaa ilmoitus");
+                                b.style(ButtonStyle::Link);
+                                b.url(item.url.clone())
+                            });
+                            r.create_button(|b| {
+                                b.label("Poista Vahti");
+                                b.style(ButtonStyle::Danger);
+                                b.custom_id("remove_vahti")
+                            })
+                        })
                     })
                 })
                 .await

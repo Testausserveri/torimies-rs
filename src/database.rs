@@ -94,10 +94,7 @@ impl Database {
         vahti: Vahti,
         timestamp: Option<i64>,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
-        info!(
-            "Vahti {} for the user {}",
-            vahti.url, vahti.user_id
-        );
+        info!("Vahti {} for the user {}", vahti.url, vahti.user_id);
         let time = timestamp.unwrap_or(chrono::Local::now().timestamp());
         info!(
             "Newest item {}s ago",

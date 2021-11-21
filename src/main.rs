@@ -31,9 +31,9 @@ use serenity::{
 use crate::extensions::ClientContextExt;
 use database::Database;
 use itemhistory::ItemHistory;
+use vahti::is_valid_url;
 use vahti::new_vahti;
 use vahti::remove_vahti;
-use vahti::is_valid_url;
 
 use clokwerk::{Scheduler, TimeUnits};
 
@@ -51,80 +51,100 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match command.data.name.as_str() {
-                "vahti" => {
-                    let mut url: String = "".to_string();
-                    for a in &command.data.options {
-                        match a.name.as_str() {
-                            "url" => {
-                                let tempurl = a.value.as_ref().unwrap();
-                                url = tempurl.as_str().unwrap().to_string();
+        match interaction {
+            Interaction::ApplicationCommand(command) => {
+                let content = match command.data.name.as_str() {
+                    "vahti" => {
+                        let mut url: String = "".to_string();
+                        for a in &command.data.options {
+                            match a.name.as_str() {
+                                "url" => {
+                                    let tempurl = a.value.as_ref().unwrap();
+                                    url = tempurl.as_str().unwrap().to_string();
+                                }
+                                _ => unreachable!(),
                             }
-                            _ => unreachable!(),
+                        }
+                        if !is_valid_url(&url).await {
+                            "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
+                        } else {
+                            new_vahti(&ctx, &url, command.user.id.0).await
                         }
                     }
-                    if !is_valid_url(&url).await {
-                        "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
-                    } else {
-                        new_vahti(&ctx, &url, command.user.id.0).await
-                    }
-                }
-                "poistavahti" => {
-                    let mut url: String = "".to_string();
-                    for a in &command.data.options {
-                        match a.name.as_str() {
-                            "url" => {
-                                let tempurl = a.value.as_ref().unwrap();
-                                url = tempurl.as_str().unwrap().to_string();
+                    "poistavahti" => {
+                        let mut url: String = "".to_string();
+                        for a in &command.data.options {
+                            match a.name.as_str() {
+                                "url" => {
+                                    let tempurl = a.value.as_ref().unwrap();
+                                    url = tempurl.as_str().unwrap().to_string();
+                                }
+                                _ => unreachable!(),
                             }
-                            _ => unreachable!(),
                         }
+                        remove_vahti(&ctx, &url, command.user.id.0).await
                     }
-                    remove_vahti(&ctx, &url, command.user.id.0).await
+                    _ => {
+                        unreachable!();
+                    }
+                };
+                command
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| message.content(content))
+                    })
+                    .await
+                    .unwrap()
+            }
+            Interaction::MessageComponent(button) => {
+                if button.data.custom_id == "remove_vahti" {
+                    let userid = button.user.id.0;
+                    let embed = button.message.clone().regular().unwrap();
+                    let embed = embed.embeds[0].description.as_ref().unwrap();
+                    let url = &embed[embed.rfind('(').unwrap() + 1..embed.rfind(')').unwrap()];
+                    let response = remove_vahti(&ctx, url, userid).await;
+                    button
+                        .create_interaction_response(&ctx.http, |r| {
+                            r.kind(InteractionResponseType::ChannelMessageWithSource)
+                                .interaction_response_data(|m| m.content(response))
+                        })
+                        .await
+                        .unwrap()
                 }
-                _ => {
-                    unreachable!();
-                }
-            };
-            command
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(content))
-                })
-                .await
-                .unwrap()
-        };
+            }
+            _ => {}
+        }
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
         ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-            commands.create_application_command(|command| {
-                command
-                    .name("vahti")
-                    .description("Luo uusi vahti")
-                    .create_option(|option| {
-                        option
-                            .name("url")
-                            .description("Hakulinkki")
-                            .required(true)
-                            .kind(ApplicationCommandOptionType::String)
-                    })
-            })
-            .create_application_command(|command| {
-                command
-                    .name("poistavahti")
-                    .description("Poista olemassaoleva vahti")
-                    .create_option(|option| {
-                        option
-                            .name("url")
-                            .description("Hakulinkki")
-                            .required(true)
-                            .kind(ApplicationCommandOptionType::String)
-                    })
-            })
+            commands
+                .create_application_command(|command| {
+                    command
+                        .name("vahti")
+                        .description("Luo uusi vahti")
+                        .create_option(|option| {
+                            option
+                                .name("url")
+                                .description("Hakulinkki")
+                                .required(true)
+                                .kind(ApplicationCommandOptionType::String)
+                        })
+                })
+                .create_application_command(|command| {
+                    command
+                        .name("poistavahti")
+                        .description("Poista olemassaoleva vahti")
+                        .create_option(|option| {
+                            option
+                                .name("url")
+                                .description("Hakulinkki")
+                                .required(true)
+                                .kind(ApplicationCommandOptionType::String)
+                        })
+                })
         })
         .await
         .unwrap();
