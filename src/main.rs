@@ -162,11 +162,9 @@ struct General;
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
 
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(tracing::Level::INFO)
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
+    FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::new("info,sqlx::query=error"))
+        .init();
 
     let database = Database::new().await;
     let itemhistory = ItemHistory::new();
