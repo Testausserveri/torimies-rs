@@ -7,6 +7,7 @@ use serde_json::Value;
 use serenity::model::interactions::message_component::ButtonStyle;
 use serenity::{client::Context, http::Http};
 use std::sync::Arc;
+use serenity::utils::Color;
 
 #[derive(Clone)]
 pub struct Vahti {
@@ -191,9 +192,14 @@ pub async fn update_vahtis(
                     .get_user(vahti.user_id.try_into().unwrap())
                     .await
                     .unwrap();
+                let c = match item.ad_type.as_str() {
+                    "Myydään" => Color::DARK_GREEN,
+                    "Annetaan" => Color::BLITZ_BLUE,
+                    _ => Color::FADED_PURPLE,
+                };
                 user.dm(http, |m| {
                     m.embed(|e| {
-                        e.color(serenity::utils::Color::DARK_GREEN);
+                        e.color(c);
                         e.description(format!(
                             "[{}]({})\n[Hakulinkki]({})",
                             item.title, item.url, vahti.url
