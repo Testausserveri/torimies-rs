@@ -39,6 +39,7 @@ use clokwerk::{Scheduler, TimeUnits};
 
 use tracing::{error, info};
 use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::EnvFilter;
 
 pub struct ShardManagerContainer;
 
