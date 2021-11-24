@@ -123,10 +123,11 @@ pub async fn update_all_vahtis(
     db: Arc<Database>,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
-) {
+) -> Result<(),anyhow::Error> {
     itemhistory.lock().await.purge_old();
-    let vahtis = db.fetch_all_vahtis().await.unwrap();
-    update_vahtis(db, itemhistory, http, vahtis).await;
+    let vahtis = db.fetch_all_vahtis().await?;
+    update_vahtis(db, itemhistory, http, vahtis).await?;
+    Ok(())
 }
 
 pub async fn update_vahtis(
@@ -134,7 +135,7 @@ pub async fn update_vahtis(
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
     vahtis: Vec<Vahti>,
-) {
+) -> Result<(),anyhow::Error> {
     let mut currenturl = String::new();
     let mut currentitems = Vec::new();
     let test = std::time::Instant::now();
@@ -153,23 +154,21 @@ pub async fn update_vahtis(
         for (vahti, request) in vahtichunks {
             if let Some(req) = request {
                 currentitems = api_parse_after(
-                    &req.await.unwrap().text().await.unwrap().clone(),
+                    &req.await?.text().await?.clone(),
                     vahti.last_updated,
                 )
-                .await;
+                .await?;
                 if currentitems.len() == 10 {
                     info!("Unsure on whether we got all the items... Querying for all of them now");
                     currentitems = api_parse_after(
                         &reqwest::get(vahti_to_api(&vahti.url))
-                            .await
-                            .unwrap()
+                            .await?
                             .text()
-                            .await
-                            .unwrap()
+                            .await?
                             .clone(),
                         vahti.last_updated,
                     )
-                    .await
+                    .await?
                 }
             }
             if !currentitems.is_empty() {
@@ -236,4 +235,5 @@ pub async fn update_vahtis(
         }
     }
     info!("Finished requests in {} ms", test.elapsed().as_millis());
+    Ok(())
 }

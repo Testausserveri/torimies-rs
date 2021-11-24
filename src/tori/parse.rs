@@ -13,8 +13,8 @@ pub struct ToriItem {
     pub ad_id: i64,
 }
 
-pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
-    let response_json: Value = serde_json::from_str(search).unwrap();
+pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>,anyhow::Error> {
+    let response_json: Value = serde_json::from_str(search)?;
     let mut items = Vec::new();
     if let Some(ads) = response_json["list_ads"].as_array() {
         for ad in ads.to_owned() {
@@ -59,8 +59,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
             let ad_id = ad_object.clone()["list_id_code"]
                 .as_str()
                 .unwrap()
-                .parse::<i64>()
-                .unwrap();
+                .parse::<i64>()?;
             items.push(ToriItem {
                 title,
                 url,
@@ -75,5 +74,5 @@ pub async fn api_parse_after(search: &str, after: i64) -> Vec<ToriItem> {
         }
     }
     items.retain(|item| item.published > after);
-    items
+    Ok(items)
 }

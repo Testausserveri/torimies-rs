@@ -223,11 +223,13 @@ async fn main() {
     let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(update_interval.second()).run(move || {
-        runtime.block_on(vahti::update_all_vahtis(
+        if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
             database.to_owned(),
             &mut itemhistory,
             &http,
-        ));
+        )) {
+            error!("Failed to update vahtis: {}",e);
+        }
     });
 
     let thread_handle = scheduler.watch_thread(std::time::Duration::from_millis(1000));

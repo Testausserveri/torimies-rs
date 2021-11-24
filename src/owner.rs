@@ -16,7 +16,7 @@ pub async fn update_all_vahtis(ctx: &Context, msg: &Message) -> CommandResult {
         .get_mut::<ItemHistory>()
         .unwrap()
         .clone();
-    vahti::update_all_vahtis(database, &mut itemhistory, &ctx.http).await;
+    vahti::update_all_vahtis(database, &mut itemhistory, &ctx.http).await.unwrap();
     msg.reply(&ctx.http, "Updated!").await.unwrap();
     Ok(())
 }
