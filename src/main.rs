@@ -235,7 +235,6 @@ async fn main() {
             .expect("Could not register ctrl-c handler");
         thread_handle.stop();
         shard_manager.lock().await.shutdown_all().await;
-        runtime.shutdown_background();
     });
 
     if let Err(why) = client.start().await {
