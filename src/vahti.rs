@@ -1,13 +1,15 @@
-use crate::tori::parse::*;
-use crate::Database;
-use crate::ItemHistory;
-use crate::Mutex;
+use std::sync::Arc;
+
 use chrono::{Local, TimeZone};
 use serde_json::Value;
+use serenity::client::Context;
+use serenity::http::Http;
 use serenity::model::interactions::message_component::ButtonStyle;
-use serenity::{client::Context, http::Http};
-use std::sync::Arc;
 use serenity::utils::Color;
+
+use crate::extensions::ClientContextExt;
+use crate::tori::parse::*;
+use crate::{Database, ItemHistory, Mutex};
 
 #[derive(Clone)]
 pub struct Vahti {
@@ -16,36 +18,29 @@ pub struct Vahti {
     pub last_updated: i64,
 }
 
-pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> String {
-    let db = ctx.data.read().await.get::<Database>().unwrap().clone();
-    if db
-        .fetch_vahti(url, userid.try_into().unwrap())
-        .await
-        .is_ok()
-    {
+pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
+    let db = ctx.get_db().await?;
+    if db.fetch_vahti(url, userid.try_into()?).await.is_ok() {
         info!("Not adding a pre-defined Vahti {} for user {}", url, userid);
-        return "Vahti on jo määritelty!".to_string();
+        return Ok("Vahti on jo määritelty!".to_string());
     }
-    match db.add_vahti_entry(url, userid.try_into().unwrap()).await {
-        Ok(_) => "Vahti lisätty!".to_string(),
-        Err(_) => "Virhe tapahtui vahdin lisäyksessä!".to_string(),
+    match db.add_vahti_entry(url, userid.try_into()?).await {
+        Ok(_) => Ok("Vahti lisätty!".to_string()),
+        Err(_) => bail!("Virhe tapahtui vahdin lisäyksessä!"),
     }
 }
 
-pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> String {
-    let db = ctx.data.read().await.get::<Database>().unwrap().clone();
-    if db
-        .fetch_vahti(url, userid.try_into().unwrap())
-        .await
-        .is_err()
-    {
+pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
+    let db = ctx.get_db().await?;
+    if db.fetch_vahti(url, userid.try_into()?).await.is_err() {
         info!("Not removing a nonexistant vahti!");
-        return "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein"
-            .to_string();
+        return Ok(
+            "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein".to_string(),
+        );
     }
-    match db.remove_vahti_entry(url, userid.try_into().unwrap()).await {
-        Ok(_) => "Vahti poistettu!".to_string(),
-        Err(_) => "Virhe tapahtui vahdin poistamisessa!".to_string(),
+    match db.remove_vahti_entry(url, userid.try_into()?).await {
+        Ok(_) => Ok("Vahti poistettu!".to_string()),
+        Err(_) => bail!("Virhe tapahtui vahdin poistamisessa!".to_string()),
     }
 }
 
@@ -55,14 +50,12 @@ fn vahti_to_api(vahti: &str) -> String {
     let mut startprice: String = "".to_string();
     let mut endprice: String = "".to_string();
     let mut price_set = false;
-    if url.contains("ps=") {
-        let index = url.find("ps=").unwrap();
+    if let Some(index) = url.find("ps=") {
         let endindex = url[index..].find('&').unwrap_or(url.len() - index);
         startprice = url[index + 3..endindex + index].to_string();
         price_set = true;
     }
-    if url.contains("pe=") {
-        let index = url.find("pe=").unwrap();
+    if let Some(index) = url.find("pe=") {
         let endindex = url[index..].find('&').unwrap_or(url.len() - index);
         endprice = url[index + 3..endindex + index].to_string();
         price_set = true;
@@ -71,9 +64,8 @@ fn vahti_to_api(vahti: &str) -> String {
     // because in the API category=0 yealds no results and in the search it just means
     // no category was specified
     url = url.replace("&category=0", "");
-    if url.contains("w=") {
+    if let Some(index) = url.find("w=") {
         let region;
-        let index = url.find("w=").unwrap();
         let endindex = url[index..].find('&').unwrap_or(url.len() - index);
         let num = url[index + 2..endindex + index].parse::<i32>().unwrap();
         if num >= 100 {
@@ -123,7 +115,7 @@ pub async fn update_all_vahtis(
     db: Arc<Database>,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
-) -> Result<(),anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     itemhistory.lock().await.purge_old();
     let vahtis = db.fetch_all_vahtis().await?;
     update_vahtis(db, itemhistory, http, vahtis).await?;
@@ -135,11 +127,12 @@ pub async fn update_vahtis(
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
     vahtis: Vec<Vahti>,
-) -> Result<(),anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     let mut currenturl = String::new();
     let mut currentitems = Vec::new();
     let test = std::time::Instant::now();
     for vahtichunks in vahtis.chunks(5) {
+        //TODO: Make networking better
         let vahtichunks = vahtichunks.iter().zip(vahtichunks.iter().map(|vahti| {
             if currenturl != vahti.url {
                 currenturl = vahti.url.clone();
@@ -153,11 +146,8 @@ pub async fn update_vahtis(
         }));
         for (vahti, request) in vahtichunks {
             if let Some(req) = request {
-                currentitems = api_parse_after(
-                    &req.await?.text().await?.clone(),
-                    vahti.last_updated,
-                )
-                .await?;
+                currentitems =
+                    api_parse_after(&req.await?.text().await?.clone(), vahti.last_updated).await?;
                 if currentitems.len() == 10 {
                     info!("Unsure on whether we got all the items... Querying for all of them now");
                     currentitems = api_parse_after(

@@ -1,6 +1,8 @@
-use crate::vahti::Vahti;
-use serenity::prelude::TypeMapKey;
 use std::sync::Arc;
+
+use serenity::prelude::TypeMapKey;
+
+use crate::vahti::Vahti;
 
 pub struct Database {
     database: sqlx::SqlitePool,
@@ -31,82 +33,86 @@ impl Database {
         &self,
         url: &str,
         userid: i64,
-    ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
         let time = chrono::Local::now().timestamp();
         info!("Adding Vahti `{}` for the user {}", url, userid);
-        sqlx::query!(
+        Ok(sqlx::query!(
             "INSERT INTO Vahdit (url, user_id, last_updated) VALUES (?, ?, ?)",
             url,
             userid,
             time
         )
         .execute(&self.database)
-        .await
+        .await?)
     }
     pub async fn remove_vahti_entry(
         &self,
         url: &str,
         userid: i64,
-    ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
         info!("Removing Vahti `{}` from the user {}", url, userid);
-        sqlx::query!(
+        Ok(sqlx::query!(
             "DELETE FROM Vahdit WHERE url = ? AND user_id = ?",
             url,
             userid,
         )
         .execute(&self.database)
-        .await
+        .await?)
     }
-    pub async fn fetch_vahti_entries_by_url(&self, url: &str) -> Result<Vec<Vahti>, sqlx::Error> {
+    pub async fn fetch_vahti_entries_by_url(&self, url: &str) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching Vahtis {}...", url);
-        sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", url)
-            .fetch_all(&self.database)
-            .await
+        Ok(
+            sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", url)
+                .fetch_all(&self.database)
+                .await?,
+        )
     }
     pub async fn fetch_vahti_entries_by_user_id(
         &self,
         userid: i64,
-    ) -> Result<Vec<Vahti>, sqlx::Error> {
+    ) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching the Vahtis of user {}...", userid);
-        sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", userid)
-            .fetch_all(&self.database)
-            .await
+        Ok(
+            sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", userid)
+                .fetch_all(&self.database)
+                .await?,
+        )
     }
-    pub async fn fetch_vahti(&self, url: &str, userid: i64) -> Result<Vahti, sqlx::Error> {
+    pub async fn fetch_vahti(&self, url: &str, userid: i64) -> Result<Vahti, anyhow::Error> {
         info!("Fetching the user {}'s Vahti {}...", userid, url);
-        sqlx::query_as!(
+        Ok(sqlx::query_as!(
             Vahti,
             "SELECT * FROM Vahdit WHERE url = ? AND user_id = ?",
             url,
             userid
         )
         .fetch_one(&self.database)
-        .await
+        .await?)
     }
-    pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, sqlx::Error> {
+    pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching all Vahtis...");
-        sqlx::query_as!(Vahti, "SELECT * FROM Vahdit")
+        Ok(sqlx::query_as!(Vahti, "SELECT * FROM Vahdit")
             .fetch_all(&self.database)
-            .await
+            .await?)
     }
     pub async fn vahti_updated(
         &self,
         vahti: Vahti,
         timestamp: Option<i64>,
-    ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+    ) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
         info!("Vahti {} for the user {}", vahti.url, vahti.user_id);
         let time = timestamp.unwrap_or(chrono::Local::now().timestamp());
         info!(
             "Newest item {}s ago",
             chrono::Local::now().timestamp() - time
         );
-        sqlx::query!(
+        Ok(sqlx::query!(
             "UPDATE Vahdit SET last_updated = ? WHERE url = ? AND user_id = ?",
             time,
             vahti.url,
             vahti.user_id,
         )
         .execute(&self.database)
-        .await
+        .await?)
     }
 }

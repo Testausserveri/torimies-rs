@@ -7,39 +7,34 @@ mod vahti;
 
 #[macro_use]
 extern crate tracing;
+#[macro_use]
+extern crate anyhow;
 
-use std::{collections::HashSet, env, sync::Arc};
-
-use owner::*;
-use serenity::{
-    async_trait,
-    client::bridge::gateway::ShardManager,
-    framework::standard::macros::group,
-    framework::standard::*,
-    http::Http,
-    model::{
-        event::ResumedEvent,
-        gateway::Ready,
-        interactions::{
-            application_command::{ApplicationCommand, ApplicationCommandOptionType},
-            Interaction, InteractionResponseType,
-        },
-    },
-    prelude::*,
-};
-
-use crate::extensions::ClientContextExt;
-use database::Database;
-use itemhistory::ItemHistory;
-use vahti::is_valid_url;
-use vahti::new_vahti;
-use vahti::remove_vahti;
+use std::collections::HashSet;
+use std::env;
+use std::sync::Arc;
 
 use clokwerk::{Scheduler, TimeUnits};
-
+use database::Database;
+use itemhistory::ItemHistory;
+use owner::*;
+use serenity::async_trait;
+use serenity::client::bridge::gateway::ShardManager;
+use serenity::framework::standard::macros::group;
+use serenity::framework::standard::*;
+use serenity::http::Http;
+use serenity::model::event::ResumedEvent;
+use serenity::model::gateway::Ready;
+use serenity::model::interactions::application_command::{
+    ApplicationCommand, ApplicationCommandOptionType,
+};
+use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::prelude::*;
 use tracing::{error, info};
-use tracing_subscriber::FmtSubscriber;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use vahti::{is_valid_url, new_vahti, remove_vahti};
+
+use crate::extensions::ClientContextExt;
 
 pub struct ShardManagerContainer;
 
@@ -69,7 +64,7 @@ impl EventHandler for Handler {
                         if !is_valid_url(&url).await {
                             "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
                         } else {
-                            new_vahti(&ctx, &url, command.user.id.0).await
+                            new_vahti(&ctx, &url, command.user.id.0).await.unwrap()
                         }
                     }
                     "poistavahti" => {
@@ -83,7 +78,7 @@ impl EventHandler for Handler {
                                 _ => unreachable!(),
                             }
                         }
-                        remove_vahti(&ctx, &url, command.user.id.0).await
+                        remove_vahti(&ctx, &url, command.user.id.0).await.unwrap()
                     }
                     _ => {
                         unreachable!();
@@ -104,7 +99,7 @@ impl EventHandler for Handler {
                     let embed = button.message.clone().regular().unwrap();
                     let embed = embed.embeds[0].description.as_ref().unwrap();
                     let url = &embed[embed.rfind('(').unwrap() + 1..embed.rfind(')').unwrap()];
-                    let response = remove_vahti(&ctx, url, userid).await;
+                    let response = remove_vahti(&ctx, url, userid).await.unwrap();
                     button
                         .create_interaction_response(&ctx.http, |r| {
                             r.kind(InteractionResponseType::ChannelMessageWithSource)
@@ -219,7 +214,7 @@ async fn main() {
     let http = client.cache_and_http.http.clone();
     let data = client.data.clone();
 
-    let database = client.get_db().await;
+    let database = client.get_db().await.unwrap();
     let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(update_interval.second()).run(move || {
@@ -228,7 +223,7 @@ async fn main() {
             &mut itemhistory,
             &http,
         )) {
-            error!("Failed to update vahtis: {}",e);
+            error!("Failed to update vahtis: {}", e);
         }
     });
 
@@ -238,8 +233,9 @@ async fn main() {
         tokio::signal::ctrl_c()
             .await
             .expect("Could not register ctrl-c handler");
-        shard_manager.lock().await.shutdown_all().await;
         thread_handle.stop();
+        shard_manager.lock().await.shutdown_all().await;
+        runtime.shutdown_background();
     });
 
     if let Err(why) = client.start().await {

@@ -13,11 +13,11 @@ pub struct ToriItem {
     pub ad_id: i64,
 }
 
-pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>,anyhow::Error> {
+pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, anyhow::Error> {
     let response_json: Value = serde_json::from_str(search)?;
     let mut items = Vec::new();
-    if let Some(ads) = response_json["list_ads"].as_array() {
-        for ad in ads.to_owned() {
+    while let Some(ads) = response_json["list_ads"].as_array() {
+        for ad in ads {
             let ad_object = ad.as_object().unwrap()["ad"].clone();
             let title = ad_object.clone()["subject"]
                 .as_str()
@@ -29,7 +29,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>,a
             let published = ad_object.clone()["list_time"]["value"].as_i64().unwrap();
             let url = ad_object.clone()["share_link"]
                 .as_str()
-                .unwrap()
+                .expect("WHAT THE FUCK TORI")
                 .to_string();
             let img_path = ad_object.clone()["thumbnail"]["path"]
                 .as_str()
@@ -58,7 +58,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>,a
                 .to_string();
             let ad_id = ad_object.clone()["list_id_code"]
                 .as_str()
-                .unwrap()
+                .expect("WHAT THE FUCK TORI")
                 .parse::<i64>()?;
             items.push(ToriItem {
                 title,

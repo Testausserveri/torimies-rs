@@ -1,6 +1,8 @@
-use crate::Mutex;
-use serenity::prelude::TypeMapKey;
 use std::sync::Arc;
+
+use serenity::prelude::TypeMapKey;
+
+use crate::Mutex;
 
 #[derive(Clone)]
 pub struct ItemHistory {
