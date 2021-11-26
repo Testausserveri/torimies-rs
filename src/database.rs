@@ -15,6 +15,11 @@ impl TypeMapKey for Database {
 #[derive(Debug)]
 pub struct UrlAndUsers {
     url: String,
+    users: Vec<i64>,
+}
+
+struct UrlAndUsersString {
+    url: String,
     users: Option<String>,
 }
 
@@ -104,10 +109,16 @@ impl Database {
     pub async fn fetch_all_vahtis_group(&self) -> Result<Vec<UrlAndUsers>, anyhow::Error> {
         info!("Fetching all vahtis grouping them by url");
 
-        Ok(sqlx::query_as!(UrlAndUsers,
+        let temp = sqlx::query_as!(UrlAndUsersString,
             "SELECT url, GROUP_CONCAT( user_id ) as users FROM Vahdit GROUP BY url")
             .fetch_all(&self.database)
-            .await?)
+            .await?;
+        let mut ret = Vec::new();
+        for e in temp {
+            let users = e.users.unwrap().split(',').map(|u| u.parse::<i64>().unwrap()).collect();
+            ret.push(UrlAndUsers { url: e.url, users } );
+        }
+        Ok(ret)
     }
     pub async fn vahti_updated(
         &self,
@@ -115,7 +126,7 @@ impl Database {
         timestamp: Option<i64>,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
         info!("Vahti {} for the user {}", vahti.url, vahti.user_id);
-        let time = timestamp.unwrap_or(chrono::Local::now().timestamp());
+        let time = timestamp.unwrap_or_else(|| chrono::Local::now().timestamp());
         info!(
             "Newest item {}s ago",
             chrono::Local::now().timestamp() - time
