@@ -12,6 +12,12 @@ impl TypeMapKey for Database {
     type Value = Arc<Database>;
 }
 
+#[derive(Debug)]
+pub struct UrlAndUsers {
+    url: String,
+    users: Option<String>,
+}
+
 impl Database {
     pub async fn new() -> Database {
         let database = sqlx::sqlite::SqlitePoolOptions::new()
@@ -92,6 +98,14 @@ impl Database {
     pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching all Vahtis...");
         Ok(sqlx::query_as!(Vahti, "SELECT * FROM Vahdit")
+            .fetch_all(&self.database)
+            .await?)
+    }
+    pub async fn fetch_all_vahtis_group(&self) -> Result<Vec<UrlAndUsers>, anyhow::Error> {
+        info!("Fetching all vahtis grouping them by url");
+
+        Ok(sqlx::query_as!(UrlAndUsers,
+            "SELECT url, GROUP_CONCAT( user_id ) as users FROM Vahdit GROUP BY url")
             .fetch_all(&self.database)
             .await?)
     }
