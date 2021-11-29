@@ -6,6 +6,8 @@ The bot works by making requests to the undocumented ~~(and very bad)~~ tori.fi 
 The users can add and remove new vahti-entries for themselves. Those are stored in the sqlite-database of the bot.
 The bot then goes through all of the defined vahtis in the database and sends the updates to the users accordingly.
 
+![](./media/demo.png)
+
 ## How to host?
 
 Make sure your `.env` includes all the necessary stuff:
@@ -46,4 +48,4 @@ One additional owner-commmand is also included:
 
 
 Please mind that the bot is still considered to be WIP.
-We will gladly accept any feedback/feature requirests :), just file an [issue](https://github.com/lajp/torimies-rs/issues) and we'll look into it
+We will gladly accept any feedback/feature requests :), just file an [issue](https://github.com/lajp/torimies-rs/issues) and we'll look into it
