@@ -16,7 +16,7 @@ pub struct ToriItem {
 pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, anyhow::Error> {
     let response_json: Value = serde_json::from_str(search)?;
     let mut items = Vec::new();
-    while let Some(ads) = response_json["list_ads"].as_array() {
+    if let Some(ads) = response_json["list_ads"].as_array() {
         for ad in ads {
             let ad_object = ad.as_object().unwrap()["ad"].clone();
             let title = ad_object.clone()["subject"]
