@@ -74,9 +74,8 @@ fn vahti_to_api(vahti: &str) -> String {
         } else if url.contains("ca=") {
             let nindex = url.find("ca=").unwrap();
             let nendindex = url[nindex..].find('&').unwrap_or(url.len() - nindex);
-            let num = url[nindex + 3..nendindex + nindex].parse::<i32>().unwrap();
-            region = num;
-            url = url.replace(&url[index..endindex + index], &format!("region={}", region));
+            let num = &url[nindex + 3..nendindex + nindex];
+            url = url.replace(&url[index..endindex + index], &format!("region={}", num));
         }
     } else {
         url = url.replace("ca=", "region=");
