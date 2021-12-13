@@ -91,7 +91,7 @@ fn vahti_to_api(vahti: &str) -> String {
 }
 
 pub async fn is_valid_url(url: &str) -> bool {
-    if !url.starts_with("https://www.tori.fi") {
+    if !url.starts_with("https://www.tori.fi/") {
         return false;
     }
     if !url.contains('?') {
