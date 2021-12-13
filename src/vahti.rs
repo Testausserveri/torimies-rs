@@ -83,6 +83,7 @@ fn vahti_to_api(vahti: &str) -> String {
     url = url.replace("st=", "ad_type=");
     url = url.replace("m=", "area=");
     url = url.replace("_s", ""); // FIXME: not a good solution
+    url = url.replace(" ", "+");
     if price_set {
         url = url + &format!("&suborder={}-{}", &startprice, &endprice);
     }
