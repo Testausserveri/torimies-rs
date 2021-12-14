@@ -35,7 +35,7 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<Strin
     if db.fetch_vahti(url, userid.try_into()?).await.is_err() {
         info!("Not removing a nonexistant vahti!");
         return Ok(
-            "Kyseistä vahtia ei ole määritelyt, tarkista että kirjoiti linkin oikein".to_string(),
+            "Kyseistä vahtia ei ole määritelty, tarkista että kirjoitit linkin oikein".to_string(),
         );
     }
     match db.remove_vahti_entry(url, userid.try_into()?).await {
