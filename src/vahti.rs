@@ -181,6 +181,11 @@ pub async fn update_vahtis(
                     vahti.user_id,
                     chrono::Local::now().timestamp(),
                 );
+                let blacklist = db.fetch_user_blacklist(vahti.user_id).await?;
+                if blacklist.contains(&item.seller_id) {
+                    info!("Seller {} blacklisted by user {}! Skipping!", &item.seller_id, &vahti.user_id);
+                    continue;
+                }
                 let user = http
                     .get_user(vahti.user_id.try_into().unwrap())
                     .await
@@ -198,7 +203,7 @@ pub async fn update_vahtis(
                             item.title, item.url, vahti.url
                         ));
                         e.field("Hinta", format!("{} €", item.price), true);
-                        e.field("Myyjä", item.seller_name.clone(), true);
+                        e.field("Myyjä", format!("[{}](https://www.tori.fi/li?&aid={})", item.seller_name, item.seller_id), true);
                         e.field("Sijainti", item.location.clone(), true);
                         e.field(
                             "Ilmoitus Jätetty",
@@ -219,6 +224,11 @@ pub async fn update_vahtis(
                                 b.label("Poista Vahti");
                                 b.style(ButtonStyle::Danger);
                                 b.custom_id("remove_vahti")
+                            });
+                            r.create_button(|b| {
+                                b.label("Estä myyjä");
+                                b.style(ButtonStyle::Danger);
+                                b.custom_id("block_seller")
                             })
                         })
                     })

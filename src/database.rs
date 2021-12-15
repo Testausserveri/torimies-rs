@@ -140,4 +140,33 @@ impl Database {
         .execute(&self.database)
         .await?)
     }
+    pub async fn fetch_user_blacklist(&self, userid: i64) -> Result<Vec<i64>, anyhow::Error> {
+        info!("Fetching the blacklist for user {}...", userid);
+        Ok(sqlx::query_scalar!(
+            "SELECT seller_id FROM Blacklist WHERE user_id = ?",
+            userid
+        )
+        .fetch_all(&self.database)
+        .await?)
+    }
+    pub async fn add_seller_to_blacklist(&self, userid: i64, sellerid: i64) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
+        info!("Adding seller {} to the blacklist of user {}", sellerid, userid);
+        Ok(sqlx::query!(
+                "INSERT INTO Blacklist (user_id, seller_id) VALUES (?, ?)",
+                userid,
+                sellerid
+        )
+        .execute(&self.database)
+        .await?)
+    }
+    pub async fn remove_seller_from_blacklist(&self, userid: i64, sellerid: i64) -> Result<sqlx::sqlite::SqliteQueryResult, anyhow::Error> {
+        info!("Removing seller {} from the blacklist of user {}", sellerid, userid);
+        Ok(sqlx::query!(
+            "DELETE FROM Blacklist WHERE user_id = ? AND seller_id = ?",
+            userid,
+            sellerid
+        )
+        .execute(&self.database)
+        .await?)
+    }
 }

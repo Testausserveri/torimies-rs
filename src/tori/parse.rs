@@ -8,6 +8,7 @@ pub struct ToriItem {
     pub published: i64,
     pub price: i64,
     pub seller_name: String,
+    pub seller_id: i64,
     pub location: String,
     pub ad_type: String,
     pub ad_id: i64,
@@ -43,6 +44,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, 
                 .as_str()
                 .unwrap_or("Unknown Seller")
                 .to_string();
+            let seller_id = ad_object.clone()["account"]["code"].as_str().unwrap().parse::<i64>().unwrap();
             let region = ad_object.clone()["locations"][0]["label"]
                 .as_str()
                 .unwrap_or("Unknown region")
@@ -67,6 +69,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, 
                 published,
                 price,
                 seller_name,
+                seller_id,
                 location,
                 ad_type,
                 ad_id,
