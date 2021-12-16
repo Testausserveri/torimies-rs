@@ -8,13 +8,23 @@ The bot then goes through all of the defined vahtis in the database and sends th
 
 ![](./media/demo.png)
 
-## How to host?
+## Hosting the bot
+If you do not have a discord application ready create one [here](https://discord.com/developers/applications). Create a bot user for the application if one doesn't already exist.
 
-Make sure your `.env` includes all the necessary stuff:
-* `DATABASE_URL=sqlite:database.sqlite` (unless you change the location)
-* `DISCORD_TOKEN=YourToken`
-* `APPLICATION_ID=YourAppID`
-* `UPDATE_INTERVAL=time_in_seconds` (defaults to 60)
+When you have your discord application ready, visit the following link to generate an invite link: `https://discord.com/developers/applications/YourAppID/oauth2/url-generator`.
+Replace "YourAppID" with the application id of your application.
+
+The discord application invite link used should have the following scopes:
+ - `bot` - required for the invite link to be a bot-invite link
+ - `applications.commands` - required for the bot commands to be usable
+
+Make sure to create the `.env` file if it does not exist and ensure that it contains all the necessary variables:
+* `DATABASE_URL=sqlite:database.sqlite` (or another location)
+* `DISCORD_TOKEN=YourToken` (the token for your discord bot)
+* `APPLICATION_ID=YourAppID` (the discord application id)
+
+Optional variables:
+* `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
 
 ### Setting up the database
 
