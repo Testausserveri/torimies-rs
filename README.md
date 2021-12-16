@@ -47,5 +47,5 @@ One additional owner-commmand is also included:
 * `!update_all_vahtis` to well... update all vahtis :D.
 
 
-Please mind that the bot is still considered to be WIP.
-We will gladly accept any feedback/feature requests :), just file an [issue](https://github.com/lajp/torimies-rs/issues) and we'll look into it
+Please keep in mind that the bot is still considered to be WIP.
+We will gladly accept any feedback/feature requests :), just file an [issue](https://github.com/Testausserveri/torimies-rs/issues) and we'll look into it.
