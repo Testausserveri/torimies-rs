@@ -1,3 +1,5 @@
+pub mod schema;
+pub mod models;
 pub mod database;
 pub mod extensions;
 mod blacklist;
@@ -10,6 +12,8 @@ mod vahti;
 extern crate tracing;
 #[macro_use]
 extern crate anyhow;
+#[macro_use]
+extern crate diesel;
 
 use std::collections::HashSet;
 use std::env;
@@ -146,7 +150,7 @@ impl EventHandler for Handler {
                     let message = button.message.clone().regular().unwrap();
                     let embed = &message.embeds[0];
                     let seller_string = &embed.fields.iter().find(|f| f.name == "Myyjä").unwrap().value;
-                    let sellerid = seller_string[seller_string.rfind('=').unwrap()+1..seller_string.find(')').unwrap()].parse::<i64>().unwrap();
+                    let sellerid = seller_string[seller_string.rfind('=').unwrap()+1..seller_string.find(')').unwrap()].parse::<i32>().unwrap();
                     let response = blacklist_seller(&ctx, userid, sellerid).await.unwrap();
                     button
                         .create_interaction_response(&ctx.http, |r| {
@@ -158,7 +162,7 @@ impl EventHandler for Handler {
                 else if button.data.custom_id == "unblock_seller" {
                     let db = ctx.get_db().await.unwrap();
                     let userid = button.user.id.0;
-                    let sellerid = button.data.values[0].parse::<i64>().unwrap();
+                    let sellerid = button.data.values[0].parse::<i32>().unwrap();
                     db.remove_seller_from_blacklist(userid.try_into().unwrap(), sellerid).await.unwrap();
                     button
                         .create_interaction_response(&ctx.http, |r| {
@@ -265,7 +269,7 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<Database>(Arc::new(database));
+        data.insert::<Database>(database);
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
         data.insert::<ItemHistory>(Arc::new(Mutex::new(itemhistory)));
     }
@@ -279,11 +283,12 @@ async fn main() {
     let data = client.data.clone();
 
     let database = client.get_db().await.unwrap();
+    dbg!(database.fetch_all_vahtis_group().await.unwrap());
     let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
-            database.to_owned(),
+            database.clone(),
             &mut itemhistory,
             &http,
         )) {

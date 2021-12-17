@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-pub async fn get_seller_name_from_id(sellerid: i64) -> Result<String, anyhow::Error> {
+pub async fn get_seller_name_from_id(sellerid: i32) -> Result<String, anyhow::Error> {
     let url = format!("https://api.tori.fi/api/v1.2/public/ads?account={}&lim=1", sellerid);
     let response = reqwest::get(&url).await?.text().await?;
     let response_json: Value = serde_json::from_str(&response)?;

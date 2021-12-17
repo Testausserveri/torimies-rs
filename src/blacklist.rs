@@ -1,7 +1,7 @@
 use serenity::client::Context;
 use crate::extensions::ClientContextExt;
 
-pub async fn blacklist_seller(ctx: &Context, userid: u64, sellerid: i64) -> Result<String, anyhow::Error> {
+pub async fn blacklist_seller(ctx: &Context, userid: u64, sellerid: i32) -> Result<String, anyhow::Error> {
     let db = ctx.get_db().await?;
     let blacklist = db.fetch_user_blacklist(userid.try_into()?).await?;
     if blacklist.contains(&sellerid) {

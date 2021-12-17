@@ -11,12 +11,7 @@ use crate::extensions::ClientContextExt;
 use crate::tori::parse::*;
 use crate::{Database, ItemHistory, Mutex};
 
-#[derive(Clone)]
-pub struct Vahti {
-    pub url: String,
-    pub user_id: i64,
-    pub last_updated: i64,
-}
+use crate::models::Vahti;
 
 pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
     let db = ctx.get_db().await?;
@@ -116,7 +111,7 @@ pub async fn is_valid_url(url: &str) -> bool {
 }
 
 pub async fn update_all_vahtis(
-    db: Arc<Database>,
+    db: Database,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
 ) -> Result<(), anyhow::Error> {
@@ -127,7 +122,7 @@ pub async fn update_all_vahtis(
 }
 
 pub async fn update_vahtis(
-    db: Arc<Database>,
+    db: Database,
     itemhistory: &mut Arc<Mutex<ItemHistory>>,
     http: &Http,
     vahtis: Vec<Vahti>,
