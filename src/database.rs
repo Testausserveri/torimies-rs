@@ -73,7 +73,7 @@ impl Database {
     ) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching the Vahtis of user {}...", userid);
         Ok(
-            sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE url = ?", userid)
+            sqlx::query_as!(Vahti, "SELECT * FROM Vahdit WHERE user_id = ?", userid)
                 .fetch_all(&self.database)
                 .await?,
         )
