@@ -44,7 +44,11 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, 
                 .as_str()
                 .unwrap_or("Unknown Seller")
                 .to_string();
-            let seller_id = ad_object.clone()["account"]["code"].as_str().unwrap().parse::<i32>().unwrap();
+            let seller_id = ad_object.clone()["account"]["code"]
+                .as_str()
+                .unwrap()
+                .parse::<i32>()
+                .unwrap();
             let region = ad_object.clone()["locations"][0]["label"]
                 .as_str()
                 .unwrap_or("Unknown region")

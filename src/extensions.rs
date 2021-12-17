@@ -13,7 +13,9 @@ pub trait ClientContextExt {
 impl ClientContextExt for client::Context {
     async fn get_db(&self) -> Result<Database, anyhow::Error> {
         let data = self.data.read().await;
-        let db = data.get::<Database>().ok_or(anyhow!("Missing database from client data"))?;
+        let db = data
+            .get::<Database>()
+            .ok_or(anyhow!("Missing database from client data"))?;
         Ok(db.clone())
     }
 }
@@ -31,7 +33,9 @@ impl ClientContextExt for client::Client {
     }*/
     async fn get_db(&self) -> Result<Database, anyhow::Error> {
         let data = self.data.read().await;
-        let db = data.get::<Database>().ok_or(anyhow!("Missing database from client data"))?;
+        let db = data
+            .get::<Database>()
+            .ok_or(anyhow!("Missing database from client data"))?;
         Ok(db.clone())
     }
 }

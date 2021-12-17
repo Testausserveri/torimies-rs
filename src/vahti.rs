@@ -8,10 +8,9 @@ use serenity::model::interactions::message_component::ButtonStyle;
 use serenity::utils::Color;
 
 use crate::extensions::ClientContextExt;
+use crate::models::Vahti;
 use crate::tori::parse::*;
 use crate::{Database, ItemHistory, Mutex};
-
-use crate::models::Vahti;
 
 pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
     let db = ctx.get_db().await?;
@@ -178,7 +177,10 @@ pub async fn update_vahtis(
                 );
                 let blacklist = db.fetch_user_blacklist(vahti.user_id).await?;
                 if blacklist.contains(&item.seller_id) {
-                    info!("Seller {} blacklisted by user {}! Skipping!", &item.seller_id, &vahti.user_id);
+                    info!(
+                        "Seller {} blacklisted by user {}! Skipping!",
+                        &item.seller_id, &vahti.user_id
+                    );
                     continue;
                 }
                 let user = http
@@ -198,7 +200,14 @@ pub async fn update_vahtis(
                             item.title, item.url, vahti.url
                         ));
                         e.field("Hinta", format!("{} €", item.price), true);
-                        e.field("Myyjä", format!("[{}](https://www.tori.fi/li?&aid={})", item.seller_name, item.seller_id), true);
+                        e.field(
+                            "Myyjä",
+                            format!(
+                                "[{}](https://www.tori.fi/li?&aid={})",
+                                item.seller_name, item.seller_id
+                            ),
+                            true,
+                        );
                         e.field("Sijainti", item.location.clone(), true);
                         e.field(
                             "Ilmoitus Jätetty",
