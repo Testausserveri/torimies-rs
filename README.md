@@ -1,10 +1,9 @@
 # torimies-rs
 
-## How the bot works?
+## How the bot works
 
-The bot works by making requests to the undocumented ~~(and very bad)~~ tori.fi api endpoint.
-The users can add and remove new vahti-entries for themselves. Those are stored in the sqlite-database of the bot.
-The bot then goes through all of the defined vahtis in the database and sends the updates to the users accordingly.
+Users of the bot can create and remove vahti-entries that they have made. Vahti-entries are stored in the sqlite-database of the bot.
+The vahtis in the database are periodically checked for new matches on the tori.fi site using an undocumented api endpoint, and new matching listings are then sent to the vahti's creator.
 
 ![](./media/demo.png)
 
@@ -28,33 +27,30 @@ Optional variables:
 
 ### Setting up the database
 
-Before running you need to setup the sqlite-database
+Before starting the bot you must setup the sqlite-database. This can be done with the `sqlx-cli` tool, which is used in these instructions.
 
-I do this with the `sqlx-cli` tool.
+`sqlx-cli` can be installed using `cargo install sqlx-cli`.
 
-The tool is installed with `cargo install sqlx-cli`
+After installing the `sqlx-cli` tool the `reset_db.sh` script can be run
+to automatically set up the database, deleting any existing database.
 
-After that you can just run the `reset_db.sh` script
-after which your database should be good to go.
-
-The binary builds include a pre-initialize database :)
+The binary builds include a pre-initialized database.
 
 ### Running torimies-rs
 
-**If you are building from source**, just do `cargo run --release`
-in the root of the repository
+**If you are building from source** run `cargo run --release` in the root of the repository.
 
-**If you are are using a binary build**, just do `./torimies-rs`
+**If you are are using a binary build** run `./torimies-rs`.
 
 ## Using the bot
 
 The bot has two main commands implemented as application commands (slash-commands)
 and those are:
-* `/vahti url` Add a new vahti with the specified url
-* `/poistavahti url` Remove the vahti with the specified url
+* `/vahti url` Adds a new vahti with the specified url
+* `/poistavahti url` Removes the vahti with the specified url
 
-One additional owner-commmand is also included:
-* `!update_all_vahtis` to well... update all vahtis :D.
+One additional owner-restricted commmand is also included (this is not a slash-command):
+* `!update_all_vahtis` immediately updates all vahtis
 
 
 Please keep in mind that the bot is still considered to be WIP.
