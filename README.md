@@ -18,7 +18,7 @@ The discord application invite link used should have the following scopes:
  - `applications.commands` - required for the bot commands to be usable
 
 Make sure to create the `.env` file if it does not exist and ensure that it contains all the necessary variables:
-* `DATABASE_URL=sqlite:database.sqlite` (or another location)
+* `DATABASE_URL=database.sqlite` (or another location)
 * `DISCORD_TOKEN=YourToken` (the token for your discord bot)
 * `APPLICATION_ID=YourAppID` (the discord application id)
 
@@ -27,14 +27,23 @@ Optional variables:
 
 ### Setting up the database
 
-Before starting the bot you must setup the sqlite-database. This can be done with the `sqlx-cli` tool, which is used in these instructions.
+Before starting the bot you must setup the sqlite-database. This can be done with the `diesel` tool, which is used in these instructions.
 
-`sqlx-cli` can be installed using `cargo install sqlx-cli`.
+`diesel` can be installed using `cargo install diesel_cli`.
 
-After installing the `sqlx-cli` tool the `reset_db.sh` script can be run
+After installing the `diesel` tool the `reset_db.sh` script can be run
 to automatically set up the database, deleting any existing database.
 
 The binary builds include a pre-initialized database.
+
+#### For databases setup before diesel-migration
+
+If you have a database with pre-existing data, the `diesel` tool wont be able to apply the migrations.
+
+In order to run the migrations I've written a simple script that temporarily gets rid of the `initial_migration`
+and then runs the migrations.
+
+See `sqlx_migrate.sh`
 
 ### Running torimies-rs
 
@@ -48,6 +57,7 @@ The bot has two main commands implemented as application commands (slash-command
 and those are:
 * `/vahti url` Adds a new vahti with the specified url
 * `/poistavahti url` Removes the vahti with the specified url
+* `/poistaesto` Prompts you with a drop-down menu to select which seller you wish to unblock
 
 One additional owner-restricted commmand is also included (this is not a slash-command):
 * `!update_all_vahtis` immediately updates all vahtis
