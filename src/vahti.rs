@@ -128,7 +128,6 @@ pub async fn update_vahtis(
     vahtis: BTreeMap<String, Vec<(i64, i64)>>,
 ) -> Result<(), anyhow::Error> {
     for (url, ids) in vahtis {
-        let test = std::time::Instant::now();
         let http = httpt.clone();
         let db = db.clone();
         let itemhistory = itemhistory.clone();
@@ -235,7 +234,6 @@ pub async fn update_vahtis(
                     }
                 }
             }
-            info!("Finished requests in {} ms", test.elapsed().as_millis());
         });
     }
     Ok(())
