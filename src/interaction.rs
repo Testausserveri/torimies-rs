@@ -116,7 +116,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     [seller_string.rfind('=').unwrap() + 1..seller_string.find(')').unwrap()]
                     .parse::<i64>()
                     .unwrap();
-                let response = blacklist_seller(&ctx, userid, sellerid).await.unwrap();
+                let response = blacklist_seller(&ctx, userid, sellerid as i32).await.unwrap();
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)
@@ -128,7 +128,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 let db = ctx.get_db().await.unwrap();
                 let userid = button.user.id.0;
                 let sellerid = button.data.values[0].parse::<i64>().unwrap();
-                db.remove_seller_from_blacklist(userid.try_into().unwrap(), sellerid)
+                db.remove_seller_from_blacklist(userid.try_into().unwrap(), sellerid as i32)
                     .await
                     .unwrap();
                 button
