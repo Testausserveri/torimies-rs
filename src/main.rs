@@ -53,7 +53,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        handle_interaction(ctx,interaction);
+        handle_interaction(ctx,interaction).await;
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {

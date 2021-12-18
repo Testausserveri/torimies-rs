@@ -1,4 +1,5 @@
 use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::model::interactions::message_component::{Button, ActionRowComponent};
 use serenity::prelude::*;
 
 use crate::blacklist::blacklist_seller;
@@ -91,10 +92,28 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
         Interaction::MessageComponent(button) => {
             if button.data.custom_id == "remove_vahti" {
                 let userid = button.user.id.0;
-                let embed = button.message.clone().regular().unwrap();
-                let embed = embed.embeds[0].description.as_ref().unwrap();
-                let url = &embed[embed.rfind('(').unwrap() + 1..embed.rfind(')').unwrap()];
-                let response = remove_vahti(&ctx, url, userid).await.unwrap();
+                let message = button.message.clone().regular().unwrap();
+                let mut url = String::from("");
+                message.components[0].components.iter().find(|b| {
+                    if let ActionRowComponent::Button(bb) = b {
+                        if bb.label.as_ref().unwrap() == "Hakulinkki" {
+                            url = bb.url.as_ref().unwrap().clone();
+                            return true
+                        }
+                        false
+                    }
+                    else {
+                        false
+                    }
+                }).unwrap();
+                let response;
+                if url == "" {
+                    error!("No search url in button, not deleting vahti");
+                    response = String::from("Virhe tapahtui vahdin poistossa")
+                }
+                else {
+                    response = remove_vahti(&ctx, &url, userid).await.unwrap();
+                }
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)

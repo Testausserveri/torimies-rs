@@ -184,8 +184,8 @@ pub async fn update_vahtis(
                             m.embed(|e| {
                                 e.color(c);
                                 e.description(format!(
-                                    "[{}]({})\n[Hakulinkki]({})",
-                                    item.title, item.url, url
+                                    "[{}]({})",
+                                    item.title, item.url
                                 ));
                                 e.field("Hinta", format!("{} €", item.price), true);
                                 e.field(
@@ -211,6 +211,11 @@ pub async fn update_vahtis(
                                         b.label("Avaa ilmoitus");
                                         b.style(ButtonStyle::Link);
                                         b.url(item.url.clone())
+                                    });
+                                    r.create_button(|b| {
+                                        b.label("Hakulinkki");
+                                        b.style(ButtonStyle::Link);
+                                        b.url(&url)
                                     });
                                     r.create_button(|b| {
                                         b.label("Estä myyjä");
