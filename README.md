@@ -41,7 +41,9 @@ If you have a database with pre-existing data, the `diesel` tool wont be able to
 In order to run the migrations I've written a simple script that temporarily gets rid of the `initial_migration`
 and then runs the migrations.
 
-See `sqlx_migrate.sh`
+**Please remember to change the `DATABASE_URL` to `database.sqlite` instead of `sqlite:database.sqlite` :)**
+
+Then see `sqlx_migrate.sh`
 
 ### Running torimies-rs
 
