@@ -21,7 +21,7 @@ impl ItemHistory {
 
     pub fn add_item(&mut self, id: i64, user_id: i64, timestamp: i64) {
         if !self.contains(id, user_id) {
-            info!("Adding id: {}, timestamp: {}", id, timestamp);
+            debug!("Adding id: {}, timestamp: {}", id, timestamp);
             self.items.push((id, user_id, timestamp))
         }
     }

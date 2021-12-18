@@ -14,9 +14,9 @@ features = ["client", "gateway", "rustls_backend", "model", "framework", "standa
 version = "1.13"
 features = ["macros", "rt-multi-thread", "signal"]
 
-[dependencies.sqlx]
-version = "0.5"
-features = ["runtime-tokio-rustls", "sqlite"]
+[dependencies.diesel]
+version = "1.4.8"
+features = ["sqlite", "r2d2"]
 
 [dependencies]
 tracing = "0.1"

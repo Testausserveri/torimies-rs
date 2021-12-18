@@ -1,23 +1,29 @@
+mod blacklist;
 pub mod database;
 pub mod extensions;
 mod itemhistory;
+pub mod models;
 mod owner;
+pub mod schema;
 mod tori;
 mod vahti;
+mod interaction;
 
 #[macro_use]
 extern crate tracing;
 #[macro_use]
 extern crate anyhow;
+#[macro_use]
+extern crate diesel;
 
 use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
 
 use clokwerk::{Scheduler, TimeUnits};
-use database::Database;
-use itemhistory::ItemHistory;
-use owner::*;
+use crate::database::Database;
+use crate::itemhistory::ItemHistory;
+use crate::owner::*;
 use serenity::async_trait;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::framework::standard::macros::group;
@@ -28,11 +34,11 @@ use serenity::model::gateway::Ready;
 use serenity::model::interactions::application_command::{
     ApplicationCommand, ApplicationCommandOptionType,
 };
-use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::model::interactions::Interaction;
 use serenity::prelude::*;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
-use vahti::{is_valid_url, new_vahti, remove_vahti};
+use crate::interaction::handle_interaction;
 
 use crate::extensions::ClientContextExt;
 
@@ -47,70 +53,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        match interaction {
-            Interaction::ApplicationCommand(command) => {
-                let content = match command.data.name.as_str() {
-                    "vahti" => {
-                        let mut url: String = "".to_string();
-                        for a in &command.data.options {
-                            match a.name.as_str() {
-                                "url" => {
-                                    let tempurl = a.value.as_ref().unwrap();
-                                    url = tempurl.as_str().unwrap().to_string();
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        if !is_valid_url(&url).await {
-                            "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
-                        } else {
-                            new_vahti(&ctx, &url, command.user.id.0).await.unwrap()
-                        }
-                    }
-                    "poistavahti" => {
-                        let mut url: String = "".to_string();
-                        for a in &command.data.options {
-                            match a.name.as_str() {
-                                "url" => {
-                                    let tempurl = a.value.as_ref().unwrap();
-                                    url = tempurl.as_str().unwrap().to_string();
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        remove_vahti(&ctx, &url, command.user.id.0).await.unwrap()
-                    }
-                    _ => {
-                        unreachable!();
-                    }
-                };
-                command
-                    .create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| message.content(content))
-                    })
-                    .await
-                    .unwrap()
-            }
-            Interaction::MessageComponent(button) => {
-                if button.data.custom_id == "remove_vahti" {
-                    let userid = button.user.id.0;
-                    let embed = button.message.clone().regular().unwrap();
-                    let embed = embed.embeds[0].description.as_ref().unwrap();
-                    let url = &embed[embed.rfind('(').unwrap() + 1..embed.rfind(')').unwrap()];
-                    let response = remove_vahti(&ctx, url, userid).await.unwrap();
-                    button
-                        .create_interaction_response(&ctx.http, |r| {
-                            r.kind(InteractionResponseType::ChannelMessageWithSource)
-                                .interaction_response_data(|m| m.content(response))
-                        })
-                        .await
-                        .unwrap()
-                }
-            }
-            _ => {}
-        }
+        handle_interaction(ctx,interaction).await;
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
@@ -140,6 +83,11 @@ impl EventHandler for Handler {
                                 .required(true)
                                 .kind(ApplicationCommandOptionType::String)
                         })
+                })
+                .create_application_command(|command| {
+                    command
+                        .name("poistaesto")
+                        .description("Salli aiemmin estetty myyjä")
                 })
         })
         .await
@@ -201,7 +149,7 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<Database>(Arc::new(database));
+        data.insert::<Database>(database);
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
         data.insert::<ItemHistory>(Arc::new(Mutex::new(itemhistory)));
     }
@@ -219,9 +167,9 @@ async fn main() {
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
-            database.to_owned(),
-            &mut itemhistory,
-            &http,
+            database.clone(),
+            itemhistory.clone(),
+            http.clone(),
         )) {
             error!("Failed to update vahtis: {}", e);
         }
