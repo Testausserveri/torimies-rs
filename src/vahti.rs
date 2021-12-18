@@ -213,14 +213,14 @@ pub async fn update_vahtis(
                                         b.url(item.url.clone())
                                     });
                                     r.create_button(|b| {
-                                        b.label("Poista Vahti");
-                                        b.style(ButtonStyle::Danger);
-                                        b.custom_id("remove_vahti")
-                                    });
-                                    r.create_button(|b| {
                                         b.label("Estä myyjä");
                                         b.style(ButtonStyle::Danger);
                                         b.custom_id("block_seller")
+                                    });
+                                    r.create_button(|b| {
+                                        b.label("Poista Vahti");
+                                        b.style(ButtonStyle::Danger);
+                                        b.custom_id("remove_vahti")
                                     })
                                 })
                             })
@@ -231,7 +231,6 @@ pub async fn update_vahtis(
                 }
             }
             info!("Finished requests in {} ms", test.elapsed().as_millis());
-            return;
         });
     }
     Ok(())
