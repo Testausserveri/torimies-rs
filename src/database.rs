@@ -1,3 +1,4 @@
+
 use std::collections::BTreeMap;
 use std::env;
 
@@ -30,6 +31,7 @@ impl Database {
 
         Self { database }
     }
+
     pub async fn add_vahti_entry(
         &self,
         arg_url: &str,
@@ -47,6 +49,7 @@ impl Database {
             .values(&new_vahti)
             .execute(&self.database.get()?)?)
     }
+
     pub async fn remove_vahti_entry(
         &self,
         arg_url: &str,
@@ -59,6 +62,7 @@ impl Database {
                 .execute(&self.database.get()?)?,
         )
     }
+
     pub async fn fetch_vahti_entries_by_url(
         &self,
         arg_url: &str,
@@ -69,6 +73,7 @@ impl Database {
             .filter(url.eq(arg_url))
             .load::<Vahti>(&self.database.get()?)?)
     }
+
     pub async fn fetch_vahti_entries_by_user_id(
         &self,
         userid: i64,
@@ -79,6 +84,7 @@ impl Database {
             .filter(user_id.eq(userid))
             .load::<Vahti>(&self.database.get()?)?)
     }
+
     pub async fn fetch_vahti(&self, arg_url: &str, userid: i64) -> Result<Vahti, anyhow::Error> {
         info!("Fetching the user {}'s Vahti {}...", userid, arg_url);
         use crate::schema::Vahdit::dsl::*;
@@ -86,24 +92,29 @@ impl Database {
             .filter(user_id.eq(userid).and(url.eq(arg_url)))
             .first::<Vahti>(&self.database.get()?)?)
     }
+
     pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, anyhow::Error> {
         info!("Fetching all Vahtis...");
         use crate::schema::Vahdit::dsl::*;
         Ok(Vahdit.load::<Vahti>(&self.database.get()?)?)
     }
+
     pub async fn fetch_all_vahtis_group(
         &self,
-    ) -> Result<BTreeMap<String, Vec<i64>>, anyhow::Error> {
+    ) -> Result<BTreeMap<String, Vec<(i64, i64)>>, anyhow::Error> {
         // FIXME: This could be done in sql
         info!("Fetching all vahtis grouping them by url");
         let vahdit = self.fetch_all_vahtis().await?;
-        let ret: BTreeMap<String, Vec<i64>> =
+        let ret: BTreeMap<String, Vec<(i64, i64)>> =
             vahdit.into_iter().fold(BTreeMap::new(), |mut acc, v| {
-                acc.entry(v.url).or_default().push(v.user_id);
+                acc.entry(v.url)
+                    .or_default()
+                    .push((v.user_id, v.last_updated));
                 acc
             });
         Ok(ret)
     }
+
     pub async fn vahti_updated(
         &self,
         vahti: Vahti,
@@ -122,13 +133,15 @@ impl Database {
                 .execute(&self.database.get()?)?,
         )
     }
+
     pub async fn fetch_user_blacklist(&self, userid: i64) -> Result<Vec<i32>, anyhow::Error> {
-        info!("Fetching the blacklist for user {}...", userid);
+        debug!("Fetching the blacklist for user {}...", userid);
         use crate::schema::Blacklists::dsl::*;
         Ok(Blacklists
             .select(seller_id)
             .load::<i32>(&self.database.get()?)?)
     }
+
     pub async fn add_seller_to_blacklist(
         &self,
         userid: i64,
@@ -147,6 +160,7 @@ impl Database {
             .values(new_entry)
             .execute(&self.database.get()?)?)
     }
+
     pub async fn remove_seller_from_blacklist(
         &self,
         userid: i64,

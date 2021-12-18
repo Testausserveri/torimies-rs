@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::{Local, TimeZone};
@@ -111,137 +112,127 @@ pub async fn is_valid_url(url: &str) -> bool {
 
 pub async fn update_all_vahtis(
     db: Database,
-    itemhistory: &mut Arc<Mutex<ItemHistory>>,
-    http: &Http,
+    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    http: Arc<Http>,
 ) -> Result<(), anyhow::Error> {
     itemhistory.lock().await.purge_old();
-    let vahtis = db.fetch_all_vahtis().await?;
+    let vahtis = db.fetch_all_vahtis_group().await?;
     update_vahtis(db, itemhistory, http, vahtis).await?;
     Ok(())
 }
 
 pub async fn update_vahtis(
     db: Database,
-    itemhistory: &mut Arc<Mutex<ItemHistory>>,
-    http: &Http,
-    vahtis: Vec<Vahti>,
+    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    httpt: Arc<Http>,
+    vahtis: BTreeMap<String, Vec<(i64, i64)>>,
 ) -> Result<(), anyhow::Error> {
-    let mut currenturl = String::new();
-    let mut currentitems = Vec::new();
-    let test = std::time::Instant::now();
-    for vahtichunks in vahtis.chunks(5) {
-        //TODO: Make networking better
-        let vahtichunks = vahtichunks.iter().zip(vahtichunks.iter().map(|vahti| {
-            if currenturl != vahti.url {
-                currenturl = vahti.url.clone();
-                let url = vahti_to_api(&currenturl);
-                info!("Sending query: {}&lim=10", url);
-                let response = reqwest::get(url + "&lim=10");
-                Some(response)
-            } else {
-                None
-            }
-        }));
-        for (vahti, request) in vahtichunks {
-            if let Some(req) = request {
-                currentitems =
-                    api_parse_after(&req.await?.text().await?.clone(), vahti.last_updated).await?;
-                if currentitems.len() == 10 {
-                    info!("Unsure on whether we got all the items... Querying for all of them now");
-                    currentitems = api_parse_after(
-                        &reqwest::get(vahti_to_api(&vahti.url))
-                            .await?
-                            .text()
-                            .await?
-                            .clone(),
-                        vahti.last_updated,
-                    )
-                    .await?
-                }
-            }
-            if !currentitems.is_empty() {
-                db.vahti_updated(vahti.clone(), Some(currentitems[0].published))
-                    .await
-                    .unwrap();
-            }
-            info!("Got {} items", currentitems.len());
-            for item in currentitems.iter().rev() {
-                if itemhistory.lock().await.contains(item.ad_id, vahti.user_id) {
-                    info!("Item {} in itemhistory! Skipping!", item.ad_id);
-                    continue;
-                }
-                itemhistory.lock().await.add_item(
-                    item.ad_id,
-                    vahti.user_id,
-                    chrono::Local::now().timestamp(),
-                );
-                let blacklist = db.fetch_user_blacklist(vahti.user_id).await?;
-                if blacklist.contains(&item.seller_id) {
-                    info!(
-                        "Seller {} blacklisted by user {}! Skipping!",
-                        &item.seller_id, &vahti.user_id
-                    );
-                    continue;
-                }
-                let user = http
-                    .get_user(vahti.user_id.try_into().unwrap())
-                    .await
-                    .unwrap();
-                let c = match item.ad_type.as_str() {
-                    "Myydään" => Color::DARK_GREEN,
-                    "Annetaan" => Color::BLITZ_BLUE,
-                    _ => Color::FADED_PURPLE,
-                };
-                user.dm(http, |m| {
-                    m.embed(|e| {
-                        e.color(c);
-                        e.description(format!(
-                            "[{}]({})\n[Hakulinkki]({})",
-                            item.title, item.url, vahti.url
-                        ));
-                        e.field("Hinta", format!("{} €", item.price), true);
-                        e.field(
-                            "Myyjä",
-                            format!(
-                                "[{}](https://www.tori.fi/li?&aid={})",
-                                item.seller_name, item.seller_id
-                            ),
-                            true,
-                        );
-                        e.field("Sijainti", item.location.clone(), true);
-                        e.field(
-                            "Ilmoitus Jätetty",
-                            Local.timestamp(item.published, 0).format("%d/%m/%Y %R"),
-                            true,
-                        );
-                        e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
-                        e.image(item.img_url.clone())
-                    });
-                    m.components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_button(|b| {
-                                b.label("Avaa ilmoitus");
-                                b.style(ButtonStyle::Link);
-                                b.url(item.url.clone())
-                            });
-                            r.create_button(|b| {
-                                b.label("Poista Vahti");
-                                b.style(ButtonStyle::Danger);
-                                b.custom_id("remove_vahti")
-                            });
-                            r.create_button(|b| {
-                                b.label("Estä myyjä");
-                                b.style(ButtonStyle::Danger);
-                                b.custom_id("block_seller")
-                            })
-                        })
-                    })
-                })
+    for (url, ids) in vahtis {
+        let test = std::time::Instant::now();
+        let http = httpt.clone();
+        let db = db.clone();
+        let itemhistory = itemhistory.clone();
+        tokio::spawn(async move {
+            let res = reqwest::get(vahti_to_api(&url))
+                .await
+                .unwrap()
+                .text()
                 .await
                 .unwrap();
+            for (id, last_updated) in ids {
+                if let Ok(mut currentitems) = api_parse_after(&res, last_updated).await {
+                    if currentitems.len() == 10 {
+                        debug!("Unsure on whether we got all the items... Querying for all of them now");
+                        currentitems = api_parse_after(
+                            &reqwest::get(vahti_to_api(&url))
+                                .await
+                                .unwrap()
+                                .text()
+                                .await
+                                .unwrap()
+                                .clone(),
+                            last_updated,
+                        )
+                        .await
+                        .unwrap();
+                    }
+                    for item in currentitems.iter().rev() {
+                        if itemhistory.lock().await.contains(item.ad_id, id) {
+                            debug!("Item {} in itemhistory! Skipping!", item.ad_id);
+                            continue;
+                        }
+                        itemhistory.lock().await.add_item(
+                            item.ad_id,
+                            id,
+                            chrono::Local::now().timestamp(),
+                        );
+                        let blacklist = db.fetch_user_blacklist(id).await.unwrap();
+                        if blacklist.contains(&item.seller_id) {
+                            info!(
+                                "Seller {} blacklisted by user {}! Skipping!",
+                                &item.seller_id, id
+                            );
+                            continue;
+                        }
+                        let user = http.get_user(id.try_into().unwrap()).await.unwrap();
+                        let c = match item.ad_type.as_str() {
+                            "Myydään" => Color::DARK_GREEN,
+                            "Annetaan" => Color::BLITZ_BLUE,
+                            _ => Color::FADED_PURPLE,
+                        };
+                        user.dm(&http, |m| {
+                            m.embed(|e| {
+                                e.color(c);
+                                e.description(format!(
+                                    "[{}]({})\n[Hakulinkki]({})",
+                                    item.title, item.url, url
+                                ));
+                                e.field("Hinta", format!("{} €", item.price), true);
+                                e.field(
+                                    "Myyjä",
+                                    format!(
+                                        "[{}](https://www.tori.fi/li?&aid={})",
+                                        item.seller_name, item.seller_id
+                                    ),
+                                    true,
+                                );
+                                e.field("Sijainti", item.location.clone(), true);
+                                e.field(
+                                    "Ilmoitus Jätetty",
+                                    Local.timestamp(item.published, 0).format("%d/%m/%Y %R"),
+                                    true,
+                                );
+                                e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
+                                e.image(item.img_url.clone())
+                            });
+                            m.components(|c| {
+                                c.create_action_row(|r| {
+                                    r.create_button(|b| {
+                                        b.label("Avaa ilmoitus");
+                                        b.style(ButtonStyle::Link);
+                                        b.url(item.url.clone())
+                                    });
+                                    r.create_button(|b| {
+                                        b.label("Poista Vahti");
+                                        b.style(ButtonStyle::Danger);
+                                        b.custom_id("remove_vahti")
+                                    });
+                                    r.create_button(|b| {
+                                        b.label("Estä myyjä");
+                                        b.style(ButtonStyle::Danger);
+                                        b.custom_id("block_seller")
+                                    })
+                                })
+                            })
+                        })
+                        .await
+                        .unwrap();
+                    }
+                }
             }
-        }
+            info!("Finished requests in {} ms", test.elapsed().as_millis());
+            return;
+        });
     }
-    info!("Finished requests in {} ms", test.elapsed().as_millis());
     Ok(())
 }

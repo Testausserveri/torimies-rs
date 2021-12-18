@@ -298,14 +298,13 @@ async fn main() {
     let data = client.data.clone();
 
     let database = client.get_db().await.unwrap();
-    dbg!(database.fetch_all_vahtis_group().await.unwrap());
     let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
             database.clone(),
-            &mut itemhistory,
-            &http,
+            itemhistory.clone(),
+            http.clone(),
         )) {
             error!("Failed to update vahtis: {}", e);
         }
