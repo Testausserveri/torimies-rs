@@ -25,8 +25,6 @@ Make sure to create the `.env` file if it does not exist and ensure that it cont
 Optional variables:
 * `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
 
-### Setting up the database
-
 Before starting the bot you must setup the sqlite-database. This can be done with the `diesel` tool, which is used in these instructions.
 
 `diesel` can be installed using `cargo install diesel_cli`.
@@ -58,6 +56,7 @@ and those are:
 * `/vahti url` Adds a new vahti with the specified url
 * `/poistavahti url` Removes the vahti with the specified url
 * `/poistaesto` Prompts you with a drop-down menu to select which seller you wish to unblock
+
 
 One additional owner-restricted commmand is also included (this is not a slash-command):
 * `!update_all_vahtis` immediately updates all vahtis
