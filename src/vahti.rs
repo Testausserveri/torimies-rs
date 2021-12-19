@@ -236,7 +236,7 @@ pub async fn update_vahtis(
                             id: 0,
                             last_updated,
                         },
-                        currentitems[0].last_updated,
+                        Some(currentitems[0].published),
                     )
                     .await
                     .unwrap();
