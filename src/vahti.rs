@@ -112,7 +112,7 @@ pub async fn is_valid_url(url: &str) -> bool {
 
 pub async fn update_all_vahtis(
     db: Database,
-    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    itemhistory: Arc<Mutex<ItemHistory>>,
     http: Arc<Http>,
 ) -> Result<(), anyhow::Error> {
     itemhistory.lock().await.purge_old();
@@ -123,7 +123,7 @@ pub async fn update_all_vahtis(
 
 pub async fn update_vahtis(
     db: Database,
-    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    itemhistory: Arc<Mutex<ItemHistory>>,
     httpt: Arc<Http>,
     vahtis: BTreeMap<String, Vec<(i64, i64)>>,
 ) -> Result<(), anyhow::Error> {
