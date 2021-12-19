@@ -1,5 +1,5 @@
+use serenity::model::interactions::message_component::{ActionRowComponent, Button};
 use serenity::model::interactions::{Interaction, InteractionResponseType};
-use serenity::model::interactions::message_component::{Button, ActionRowComponent};
 use serenity::prelude::*;
 
 use crate::blacklist::blacklist_seller;
@@ -94,24 +94,26 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 let userid = button.user.id.0;
                 let message = button.message.clone().regular().unwrap();
                 let mut url = String::from("");
-                message.components[0].components.iter().find(|b| {
-                    if let ActionRowComponent::Button(bb) = b {
-                        if bb.label.as_ref().unwrap() == "Hakulinkki" {
-                            url = bb.url.as_ref().unwrap().clone();
-                            return true
+                message.components[0]
+                    .components
+                    .iter()
+                    .find(|b| {
+                        if let ActionRowComponent::Button(bb) = b {
+                            if bb.label.as_ref().unwrap() == "Hakulinkki" {
+                                url = bb.url.as_ref().unwrap().clone();
+                                return true;
+                            }
+                            false
+                        } else {
+                            false
                         }
-                        false
-                    }
-                    else {
-                        false
-                    }
-                }).unwrap();
+                    })
+                    .unwrap();
                 let response;
                 if url == "" {
                     error!("No search url in button, not deleting vahti");
                     response = String::from("Virhe tapahtui vahdin poistossa")
-                }
-                else {
+                } else {
                     response = remove_vahti(&ctx, &url, userid).await.unwrap();
                 }
                 button
@@ -135,7 +137,9 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     [seller_string.rfind('=').unwrap() + 1..seller_string.find(')').unwrap()]
                     .parse::<i64>()
                     .unwrap();
-                let response = blacklist_seller(&ctx, userid, sellerid as i32).await.unwrap();
+                let response = blacklist_seller(&ctx, userid, sellerid as i32)
+                    .await
+                    .unwrap();
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)

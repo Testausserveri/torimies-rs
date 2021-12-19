@@ -182,10 +182,7 @@ pub async fn update_vahtis(
                         user.dm(&http, |m| {
                             m.embed(|e| {
                                 e.color(c);
-                                e.description(format!(
-                                    "[{}]({})",
-                                    item.title, item.url
-                                ));
+                                e.description(format!("[{}]({})", item.title, item.url));
                                 e.field("Hinta", format!("{} €", item.price), true);
                                 e.field(
                                     "Myyjä",
@@ -232,7 +229,17 @@ pub async fn update_vahtis(
                         .await
                         .unwrap();
                     }
-                    db.vahti_updated(Vahti { user_id: id, url: url.clone(), id: 0, last_updated }, None).await.unwrap();
+                    db.vahti_updated(
+                        Vahti {
+                            user_id: id,
+                            url: url.clone(),
+                            id: 0,
+                            last_updated,
+                        },
+                        currentitems[0].last_updated,
+                    )
+                    .await
+                    .unwrap();
                 }
             }
         });

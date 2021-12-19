@@ -1,13 +1,13 @@
 mod blacklist;
 pub mod database;
 pub mod extensions;
+mod interaction;
 mod itemhistory;
 pub mod models;
 mod owner;
 pub mod schema;
 mod tori;
 mod vahti;
-mod interaction;
 
 #[macro_use]
 extern crate tracing;
@@ -21,9 +21,6 @@ use std::env;
 use std::sync::Arc;
 
 use clokwerk::{Scheduler, TimeUnits};
-use crate::database::Database;
-use crate::itemhistory::ItemHistory;
-use crate::owner::*;
 use serenity::async_trait;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::framework::standard::macros::group;
@@ -38,9 +35,12 @@ use serenity::model::interactions::Interaction;
 use serenity::prelude::*;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
-use crate::interaction::handle_interaction;
 
+use crate::database::Database;
 use crate::extensions::ClientContextExt;
+use crate::interaction::handle_interaction;
+use crate::itemhistory::ItemHistory;
+use crate::owner::*;
 
 pub struct ShardManagerContainer;
 
@@ -53,7 +53,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        handle_interaction(ctx,interaction).await;
+        handle_interaction(ctx, interaction).await;
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
