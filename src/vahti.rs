@@ -232,6 +232,7 @@ pub async fn update_vahtis(
                         .await
                         .unwrap();
                     }
+                    db.vahti_updated(Vahti { user_id: id, url: url.clone(), id: 0, last_updated }, None).await.unwrap();
                 }
             }
         });
