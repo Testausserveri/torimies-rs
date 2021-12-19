@@ -40,51 +40,57 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<Strin
 }
 
 fn vahti_to_api(vahti: &str) -> String {
-    let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
-        + &vahti.to_owned()[vahti.find('?').unwrap()..];
-    let mut startprice: String = "".to_string();
-    let mut endprice: String = "".to_string();
+    let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
+    let args = &vahti[vahti.find('?').unwrap() + 1..];
     let mut price_set = false;
-    if let Some(index) = url.find("ps=") {
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        startprice = url[index + 3..endindex + index].to_string();
-        price_set = true;
-    }
-    if let Some(index) = url.find("pe=") {
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        endprice = url[index + 3..endindex + index].to_string();
-        price_set = true;
-    }
-    url = url.replace("cg=", "category=");
-    // because in the API category=0 yealds no results and in the search it just means
-    // no category was specified
-    url = url.replace("&category=0", "");
-    if let Some(index) = url.find("w=") {
-        let region;
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        let num = url[index + 2..endindex + index].parse::<i32>().unwrap();
-        if num >= 100 {
-            region = num - 100;
-            url = url.replace(&url[index..endindex + index], &format!("region={}", region));
-        } else if url.contains("ca=") {
-            let nindex = url.find("ca=").unwrap();
-            let nendindex = url[nindex..].find('&').unwrap_or(url.len() - nindex);
-            let num = &url[nindex + 3..nendindex + nindex];
-            url = url.replace(&url[index..endindex + index], &format!("region={}", num));
+    let mut region_defined = false;
+    let mut startprice = "";
+    let mut endprice = "";
+    let mut api_args = Vec::<(String, String)>::new();
+    for arg in args.split('&') {
+        let parts: Vec<&str> = arg.split('=').collect();
+        match parts[0] {
+            "ps" => {
+                startprice = parts[0];
+                price_set = true;
+            }
+            "pe" => {
+                endprice = parts[0];
+                price_set = true;
+            }
+            "cg" => {
+                if parts[1] != "0" {
+                    api_args.push(("category".to_string(), parts[1].to_string()));
+                }
+            }
+            "st" => api_args.push(("ad_type".to_string(), parts[1].to_string())),
+            "m" => api_args.push(("area".to_string(), parts[1].to_string())),
+            "w" => {
+                let reg: i32 = parts[1].parse().unwrap();
+                if reg >= 100 {
+                    region_defined = true;
+                    api_args.push(("region".to_string(), (reg - 100).to_string()));
+                }
+            }
+            "ca" => api_args.push(("caregion".to_string(), parts[1].to_string())),
+            _ => api_args.push((parts[0].to_string(), parts[1].to_string())),
         }
-    } else {
-        url = url.replace("ca=", "region=");
     }
-    url = url.replace("st=", "ad_type=");
-    url = url.replace("m=", "area=");
-    url = url.replace("_s", ""); // FIXME: not a good solution
-    url = url.replace(" ", "+");
+    for arg in api_args {
+        if arg.0 == "caregion" {
+            if !region_defined {
+                url += &format!("&{}={}", arg.0, arg.1);
+            }
+        } else {
+            url += &format!("&{}={}", arg.0, arg.1);
+        }
+    }
     url = url.replace("%E4", "ä");
     url = url.replace("%C4", "Ä");
     url = url.replace("%F6", "ö");
     url = url.replace("%D6", "Ö");
     if price_set {
-        url = url + &format!("&suborder={}-{}", &startprice, &endprice);
+        url += &format!("&suborder={}-{}", &startprice, &endprice);
     }
     url
 }
