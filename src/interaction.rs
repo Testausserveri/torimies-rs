@@ -1,4 +1,4 @@
-use serenity::model::interactions::message_component::{ActionRowComponent, Button};
+use serenity::model::interactions::message_component::{ActionRowComponent};
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 
@@ -56,7 +56,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 blacklist_names.push(
                     get_seller_name_from_id(*entry)
                         .await
-                        .unwrap_or("Unknown Seller".to_string()),
+                        .unwrap_or(String::from("Unknown Seller")),
                 );
             }
             command
@@ -109,13 +109,12 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                         }
                     })
                     .unwrap();
-                let response;
-                if url == "" {
+                let response = if url.is_empty() {
                     error!("No search url in button, not deleting vahti");
-                    response = String::from("Virhe tapahtui vahdin poistossa")
+                    String::from("Virhe tapahtui vahdin poistossa")
                 } else {
-                    response = remove_vahti(&ctx, &url, userid).await.unwrap();
-                }
+                    remove_vahti(&ctx, &url, userid).await.unwrap()
+                };
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)

@@ -163,7 +163,7 @@ async fn main() {
     let data = client.data.clone();
 
     let database = client.get_db().await.unwrap();
-    let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
+    let itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(

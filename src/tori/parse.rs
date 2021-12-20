@@ -38,7 +38,7 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<ToriItem>, 
                 .to_string();
             let img_url = format!(
                 "https://images.tori.fi/api/v1/imagestori/images{}?rule=medium_660",
-                &img_path[img_path.find('/').unwrap_or_else(|| img_path.len())..]
+                &img_path[img_path.find('/').unwrap_or(img_path.len())..]
             );
             let seller_name = ad_object.clone()["user"]["account"]["name"]
                 .as_str()

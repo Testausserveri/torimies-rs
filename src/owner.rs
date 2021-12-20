@@ -10,7 +10,7 @@ use crate::{vahti, ItemHistory};
 #[owners_only]
 pub async fn update_all_vahtis(ctx: &Context, msg: &Message) -> CommandResult {
     let database = ctx.clone().get_db().await.unwrap();
-    let mut itemhistory = ctx
+    let itemhistory = ctx
         .data
         .write()
         .await
