@@ -209,7 +209,7 @@ pub async fn update_vahtis(
                                         b.url(item.url.clone())
                                     });
                                     r.create_button(|b| {
-                                        b.label("Hakulinkki");
+                                        b.label("Avaa hakusivu");
                                         b.style(ButtonStyle::Link);
                                         b.url(&url)
                                     });
