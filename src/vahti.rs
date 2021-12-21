@@ -48,7 +48,10 @@ fn vahti_to_api(vahti: &str) -> String {
     let mut endprice = "";
     let mut api_args = Vec::<(String, String)>::new();
     for arg in args.split('&') {
-        let parts: Vec<&str> = arg.split('=').collect();
+        let mut parts: Vec<&str> = arg.split('=').collect();
+        if parts.len() == 1 {
+            parts.push("");
+        }
         match parts[0] {
             "ps" => {
                 startprice = parts[0];
