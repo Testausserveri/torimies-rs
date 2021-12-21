@@ -161,6 +161,9 @@ pub async fn update_vahtis(
                         .await
                         .unwrap();
                     }
+                    if currentitems.is_empty() {
+                        continue;
+                    }
                     for item in currentitems.iter().rev() {
                         if itemhistory.lock().await.contains(item.ad_id, id) {
                             debug!("Item {} in itemhistory! Skipping!", item.ad_id);
