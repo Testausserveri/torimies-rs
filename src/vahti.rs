@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use regex::Regex;
 
 use chrono::{Local, TimeZone};
 use serde_json::Value;
@@ -54,11 +55,11 @@ fn vahti_to_api(vahti: &str) -> String {
         }
         match parts[0] {
             "ps" => {
-                startprice = parts[0];
+                startprice = parts[1];
                 price_set = true;
             }
             "pe" => {
-                endprice = parts[0];
+                endprice = parts[1];
                 price_set = true;
             }
             "cg" => {
@@ -92,17 +93,16 @@ fn vahti_to_api(vahti: &str) -> String {
     url = url.replace("%C4", "Ä");
     url = url.replace("%F6", "ö");
     url = url.replace("%D6", "Ö");
-    if price_set {
+    if price_set && !startprice.is_empty() && !endprice.is_empty() {
         url += &format!("&suborder={}-{}", &startprice, &endprice);
     }
     url
 }
 
 pub async fn is_valid_url(url: &str) -> bool {
-    if !url.starts_with("https://www.tori.fi/") {
-        return false;
-    }
-    if !url.contains('?') {
+    let tori_regex = Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap();
+    if !tori_regex.is_match(url) {
+        info!("Ignoring invalid url: {}", url);
         return false;
     }
     let url = vahti_to_api(url) + "&lim=0";
