@@ -211,7 +211,10 @@ pub async fn update_vahtis(
                                     true,
                                 );
                                 e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
-                                e.image(item.img_url.clone())
+                                if !item.img_url.is_empty() {
+                                    e.image(item.img_url.clone());
+                                }
+                                e
                             });
                             m.components(|c| {
                                 c.create_action_row(|r| {
