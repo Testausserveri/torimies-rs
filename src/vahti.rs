@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use regex::Regex;
 
 use chrono::{Local, TimeZone};
+use regex::Regex;
 use serde_json::Value;
 use serenity::client::Context;
 use serenity::http::Http;

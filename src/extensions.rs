@@ -1,5 +1,3 @@
-
-
 use serenity::{async_trait, client};
 
 use crate::Database;

@@ -1,4 +1,4 @@
-use serenity::model::interactions::message_component::{ActionRowComponent};
+use serenity::model::interactions::message_component::ActionRowComponent;
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 
