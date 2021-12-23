@@ -142,6 +142,28 @@ impl From<FullToriItem> for ToriItem {
             }
             None => String::new(),
         };
+        let mut location_vec: Vec<String> = Vec::new();
+        let mut loc = &t.locations[0];
+        loop {
+            location_vec.push(loc.label.clone());
+            if loc.locations.is_empty() {
+                break;
+            }
+            loc = &loc.locations[0];
+        }
+        let mut prevloc = String::new();
+        let mut location = String::new();
+        for loc_string in location_vec.iter().rev() {
+            if *loc_string == prevloc {
+                break;
+            }
+            prevloc = loc_string.to_string();
+            if location.is_empty() {
+                location += loc_string;
+            } else {
+                location += &format!(", {}", loc_string);
+            }
+        }
         ToriItem {
             title: t.subject,
             url: t.share_link,
@@ -150,7 +172,7 @@ impl From<FullToriItem> for ToriItem {
             price: t.list_price.price_value,
             seller_name: t.user.account.name,
             seller_id: t.account.code.parse().unwrap(),
-            location: t.locations[0].clone().label,
+            location,
             ad_type: t.r#type.label,
             ad_id: t.ad_id[t.ad_id.rfind('/').unwrap() + 1..].parse().unwrap(),
         }
