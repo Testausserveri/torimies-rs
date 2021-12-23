@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use chrono::{Local, TimeZone};
 use regex::Regex;
-use serde_json::Value;
 use serenity::client::Context;
 use serenity::http::Http;
 use serenity::model::interactions::message_component::ButtonStyle;
@@ -11,8 +10,21 @@ use serenity::utils::Color;
 
 use crate::extensions::ClientContextExt;
 use crate::models::Vahti;
-use crate::tori::parse::*;
 use crate::{Database, ItemHistory, Mutex};
+
+#[derive(Clone, Debug)]
+pub struct VahtiItem {
+    pub title: String,
+    pub url: String,
+    pub img_url: String,
+    pub published: i64,
+    pub price: i64,
+    pub seller_name: String,
+    pub seller_id: i32,
+    pub location: String,
+    pub ad_type: String,
+    pub ad_id: i64,
+}
 
 pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
     let db = ctx.get_db().await?;
@@ -41,81 +53,43 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<Strin
 }
 
 fn vahti_to_api(vahti: &str) -> String {
-    let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
-    let args = &vahti[vahti.find('?').unwrap() + 1..];
-    let mut price_set = false;
-    let mut region_defined = false;
-    let mut startprice = "";
-    let mut endprice = "";
-    let mut api_args = Vec::<(String, String)>::new();
-    for arg in args.split('&') {
-        let mut parts: Vec<&str> = arg.split('=').collect();
-        if parts.len() == 1 {
-            parts.push("");
-        }
-        match parts[0] {
-            "ps" => {
-                startprice = parts[1];
-                price_set = true;
-            }
-            "pe" => {
-                endprice = parts[1];
-                price_set = true;
-            }
-            "cg" => {
-                if parts[1] != "0" {
-                    api_args.push(("category".to_string(), parts[1].to_string()));
-                }
-            }
-            "st" => api_args.push(("ad_type".to_string(), parts[1].to_string())),
-            "m" => api_args.push(("area".to_string(), parts[1].to_string())),
-            "w" => {
-                let reg: i32 = parts[1].parse().unwrap();
-                if reg >= 100 {
-                    region_defined = true;
-                    api_args.push(("region".to_string(), (reg - 100).to_string()));
-                }
-            }
-            "ca" => api_args.push(("caregion".to_string(), parts[1].to_string())),
-            _ => api_args.push((parts[0].to_string(), parts[1].to_string())),
-        }
-    }
-    for arg in api_args {
-        if arg.0 == "caregion" {
-            if !region_defined {
-                url += &format!("&{}={}", arg.0, arg.1);
-            }
-        } else {
-            url += &format!("&{}={}", arg.0, arg.1);
-        }
-    }
-    url = url.replace("%E4", "ä");
-    url = url.replace("%C4", "Ä");
-    url = url.replace("%F6", "ö");
-    url = url.replace("%D6", "Ö");
-    if price_set && !startprice.is_empty() && !endprice.is_empty() {
-        url += &format!("&suborder={}-{}", &startprice, &endprice);
+    let tori_regex = Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap();
+    let huuto_regex = Regex::new(r"^https://(www\.)?huuto\.net/haku?.*$").unwrap();
+    let url;
+    if tori_regex.is_match(vahti) {
+        url = crate::tori::api::vahti_to_api(vahti);
+    } else if huuto_regex.is_match(vahti) {
+        url = crate::huutonet::api::vahti_to_api(vahti);
+    } else {
+        panic!("Unidentified url in a Vahti: {}", vahti);
     }
     url
 }
 
 pub async fn is_valid_url(url: &str) -> bool {
     let tori_regex = Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap();
-    if !tori_regex.is_match(url) {
-        info!("Ignoring invalid url: {}", url);
-        return false;
+    let huuto_regex = Regex::new(r"^https://(www\.)?huuto\.net/haku?.*$").unwrap();
+    if tori_regex.is_match(url) {
+        return crate::tori::api::is_valid_url(url).await;
+    } else if huuto_regex.is_match(url) {
+        return crate::huutonet::api::is_valid_url(url).await;
     }
-    let url = vahti_to_api(url) + "&lim=0";
-    let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
-    let response_json: Value = serde_json::from_str(&response).unwrap();
-    if let Some(counter_map) = response_json["counter_map"].as_object() {
-        if let Some(amount) = counter_map["all"].as_i64() {
-            amount > 0
-        } else {
-            false
-        }
+    false
+}
+
+pub async fn api_parse_after(text: &str, after: i64) -> Result<Vec<VahtiItem>, anyhow::Error> {
+    // BIG FIXME: This is definitely not the best solution
+    // Optimally Vahti would be an enum of some kind, and
+    // all the stuff would be executed to that enum automatically
+    // ex. g. Vahti::parse_after(i64) would execute stuff depending on
+    // the vahti type aka for which site the vahti is setup for
+    if text.contains("tori.fi") {
+        return crate::tori::parse::api_parse_after(text, after).await;
+    } else if text.contains("huuto.net") {
+        return crate::huutonet::parse::api_parse_after(text, after).await;
     } else {
-        false
+        error!("Unrecognized vathi result!");
+        bail!("Unrecognized vahti result!");
     }
 }
 

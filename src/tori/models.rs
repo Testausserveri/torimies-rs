@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use serde::Deserialize;
+use crate::vahti::VahtiItem;
 
 #[derive(Deserialize, Debug, Clone, Default)]
 struct ToriAccount {
@@ -117,22 +118,8 @@ pub struct FullToriItem {
     list_time: ToriListTime,
 }
 
-#[derive(Clone, Debug)]
-pub struct ToriItem {
-    pub title: String,
-    pub url: String,
-    pub img_url: String,
-    pub published: i64,
-    pub price: i64,
-    pub seller_name: String,
-    pub seller_id: i32,
-    pub location: String,
-    pub ad_type: String,
-    pub ad_id: i64,
-}
-
-impl From<FullToriItem> for ToriItem {
-    fn from(t: FullToriItem) -> ToriItem {
+impl From<FullToriItem> for VahtiItem {
+    fn from(t: FullToriItem) -> VahtiItem {
         let img_url = match t.thumbnail {
             Some(i) => {
                 format!(
@@ -164,7 +151,7 @@ impl From<FullToriItem> for ToriItem {
                 location += &format!(", {}", loc_string);
             }
         }
-        ToriItem {
+        VahtiItem {
             title: t.subject,
             url: t.share_link,
             img_url,
