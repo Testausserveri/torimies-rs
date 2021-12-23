@@ -13,7 +13,7 @@ struct ToriCategory {
     label: String,
     name: String,
     path_en: String,
-    parent: String
+    parent: String,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -135,9 +135,11 @@ impl From<FullToriItem> for ToriItem {
     fn from(t: FullToriItem) -> ToriItem {
         let img_url = match t.thumbnail {
             Some(i) => {
-                format!("https://images.tori.fi/api/v1/imagestori/images{}?rule=medium_660",
-                &i.path[i.path.find('/').unwrap_or(i.path.len())..])
-            },
+                format!(
+                    "https://images.tori.fi/api/v1/imagestori/images{}?rule=medium_660",
+                    &i.path[i.path.find('/').unwrap_or(i.path.len())..]
+                )
+            }
             None => String::new(),
         };
         ToriItem {
@@ -150,7 +152,7 @@ impl From<FullToriItem> for ToriItem {
             seller_id: t.account.code.parse().unwrap(),
             location: t.locations[0].clone().label,
             ad_type: t.r#type.label,
-            ad_id: t.ad_id[t.ad_id.rfind('/').unwrap()+1..].parse().unwrap()
+            ad_id: t.ad_id[t.ad_id.rfind('/').unwrap() + 1..].parse().unwrap(),
         }
     }
 }

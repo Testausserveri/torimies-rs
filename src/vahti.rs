@@ -157,8 +157,7 @@ pub async fn update_vahtis(
                                 .unwrap()
                                 .text()
                                 .await
-                                .unwrap()
-                                .clone(),
+                                .unwrap(),
                             last_updated,
                         )
                         .await
@@ -204,7 +203,7 @@ pub async fn update_vahtis(
                                     ),
                                     true,
                                 );
-                                e.field("Sijainti", item.location.clone(), true);
+                                e.field("Sijainti", &item.location, true);
                                 e.field(
                                     "Ilmoitus Jätetty",
                                     Local.timestamp(item.published, 0).format("%d/%m/%Y %R"),
@@ -212,7 +211,7 @@ pub async fn update_vahtis(
                                 );
                                 e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
                                 if !item.img_url.is_empty() {
-                                    e.image(item.img_url.clone());
+                                    e.image(&item.img_url);
                                 }
                                 e
                             });
@@ -221,7 +220,7 @@ pub async fn update_vahtis(
                                     r.create_button(|b| {
                                         b.label("Avaa ilmoitus");
                                         b.style(ButtonStyle::Link);
-                                        b.url(item.url.clone())
+                                        b.url(&item.url)
                                     });
                                     r.create_button(|b| {
                                         b.label("Hakulinkki");
