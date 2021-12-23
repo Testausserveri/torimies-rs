@@ -160,10 +160,9 @@ async fn main() {
     let mut scheduler = Scheduler::with_tz(chrono::Local);
 
     let http = client.cache_and_http.http.clone();
-    let data = client.data.clone();
 
     let database = client.get_db().await.unwrap();
-    let itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
+    let itemhistory = client.get_itemhistory().await.unwrap();
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
