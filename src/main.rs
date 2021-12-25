@@ -34,7 +34,6 @@ use serenity::model::interactions::application_command::{
 use serenity::model::interactions::Interaction;
 use serenity::prelude::*;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::database::Database;
 use crate::extensions::ClientContextExt;
@@ -106,9 +105,7 @@ struct General;
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
 
-    FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::new("info,sqlx::query=error"))
-        .init();
+    tracing_subscriber::fmt::init();
 
     let database = Database::new().await;
     let itemhistory = ItemHistory::new();
