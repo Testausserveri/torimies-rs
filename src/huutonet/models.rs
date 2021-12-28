@@ -38,7 +38,7 @@ pub struct FullHuutonetItem {
     buy_now_price: Option<f64>,
     sale_method: String,
     list_time: String,
-    postal_code: String,
+    postal_code: Option<String>,
     location: String,
     closing_time: String,
     bidder_count: i64,

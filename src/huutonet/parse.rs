@@ -3,7 +3,7 @@ use serde_json::Value;
 use super::models::FullHuutonetItem;
 use crate::vahti::VahtiItem;
 
-pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<VahtiItem>, anyhow::Error> {
+pub fn api_parse_after(search: &str, after: i64) -> Result<Vec<VahtiItem>, anyhow::Error> {
     let response_json: Value = serde_json::from_str(search)?;
     let mut items = Vec::new();
     if let Some(ads) = response_json["items"].as_array() {
@@ -16,5 +16,6 @@ pub async fn api_parse_after(search: &str, after: i64) -> Result<Vec<VahtiItem>,
             items.push(item);
         }
     }
+    debug!("Parsed {} items", items.len());
     Ok(items)
 }

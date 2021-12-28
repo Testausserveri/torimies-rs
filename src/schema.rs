@@ -4,6 +4,7 @@ table! {
         id -> Integer,
         user_id -> BigInt,
         seller_id -> Integer,
+        site_id -> Integer,
     }
 }
 
@@ -13,6 +14,7 @@ table! {
         url -> Text,
         user_id -> BigInt,
         last_updated -> BigInt,
+        site_id -> Integer,
     }
 }
 

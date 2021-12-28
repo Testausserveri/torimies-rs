@@ -9,6 +9,7 @@ pub mod schema;
 mod tori;
 mod vahti;
 mod huutonet;
+mod notifications;
 
 #[macro_use]
 extern crate tracing;

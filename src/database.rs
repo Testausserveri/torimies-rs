@@ -76,6 +76,7 @@ impl Database {
             last_updated: time,
             url: arg_url.to_string(),
             user_id: userid,
+            site_id: crate::vahti::SiteId::from(arg_url) as i32,
         };
         Ok(diesel::insert_into(Vahdit::table)
             .values(&new_vahti)
@@ -133,15 +134,15 @@ impl Database {
 
     pub async fn fetch_all_vahtis_group(
         &self,
-    ) -> Result<BTreeMap<String, Vec<(i64, i64)>>, anyhow::Error> {
+    ) -> Result<BTreeMap<String, Vec<Vahti>>, anyhow::Error> {
         // FIXME: This could be done in sql
         info!("Fetching all vahtis grouping them by url");
         let vahdit = self.fetch_all_vahtis().await?;
-        let ret: BTreeMap<String, Vec<(i64, i64)>> =
+        let ret: BTreeMap<String, Vec<Vahti>> =
             vahdit.into_iter().fold(BTreeMap::new(), |mut acc, v| {
-                acc.entry(v.url)
+                acc.entry(v.url.clone())
                     .or_default()
-                    .push((v.user_id, v.last_updated));
+                    .push(v);
                 acc
             });
         Ok(ret)
@@ -178,6 +179,7 @@ impl Database {
         &self,
         userid: i64,
         sellerid: i32,
+        siteid: i32,
     ) -> Result<usize, anyhow::Error> {
         info!(
             "Adding seller {} to the blacklist of user {}",
@@ -187,6 +189,7 @@ impl Database {
         let new_entry = NewBlacklist {
             user_id: userid,
             seller_id: sellerid,
+            site_id: siteid,
         };
         Ok(diesel::insert_into(Blacklists::table)
             .values(new_entry)

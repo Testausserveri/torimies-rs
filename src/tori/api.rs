@@ -41,6 +41,9 @@ pub fn vahti_to_api(vahti: &str) -> String {
         }
     }
     for arg in api_args {
+        if arg.0.is_empty() {
+            continue;
+        }
         if arg.0 == "caregion" {
             if !region_defined {
                 url += &format!("&{}={}", arg.0, arg.1);

@@ -136,7 +136,23 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     [seller_string.rfind('=').unwrap() + 1..seller_string.find(')').unwrap()]
                     .parse::<i64>()
                     .unwrap();
-                let response = blacklist_seller(&ctx, userid, sellerid as i32)
+                let mut url = String::from("");
+                message.components[0]
+                    .components
+                    .iter()
+                    .find(|b| {
+                        if let ActionRowComponent::Button(bb) = b {
+                            if bb.label.as_ref().unwrap() == "Hakulinkki" {
+                                url = bb.url.as_ref().unwrap().clone();
+                                return true;
+                            }
+                            false
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap();
+                let response = blacklist_seller(&ctx, userid, sellerid as i32, crate::vahti::SiteId::from(url.as_str()) as i32)
                     .await
                     .unwrap();
                 button

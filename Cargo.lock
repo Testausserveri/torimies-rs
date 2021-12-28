@@ -1445,6 +1445,7 @@ dependencies = [
  "diesel",
  "dotenv",
  "futures",
+ "lazy_static",
  "regex",
  "reqwest",
  "serde",
