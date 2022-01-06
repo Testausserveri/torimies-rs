@@ -68,7 +68,7 @@ impl EventHandler for Handler {
                         .create_option(|option| {
                             option
                                 .name("url")
-                                .description("Hakulinkki")
+                                .description("Hakusivun linkki")
                                 .required(true)
                                 .kind(ApplicationCommandOptionType::String)
                         })
@@ -80,7 +80,7 @@ impl EventHandler for Handler {
                         .create_option(|option| {
                             option
                                 .name("url")
-                                .description("Hakulinkki")
+                                .description("Hakusivun linkki")
                                 .required(true)
                                 .kind(ApplicationCommandOptionType::String)
                         })

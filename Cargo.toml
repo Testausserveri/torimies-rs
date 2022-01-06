@@ -18,6 +18,14 @@ features = ["macros", "rt-multi-thread", "signal"]
 version = "1.4.8"
 features = ["sqlite", "r2d2"]
 
+[dependencies.openssl]
+version = "0.10"
+features = ["vendored"]
+
+[dependencies.libsqlite3-sys]
+version = "0.22.2"
+features = ["bundled"]
+
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
