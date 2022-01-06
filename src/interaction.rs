@@ -64,25 +64,29 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| {
-                            message.content(&content);
-                            if content == *"Valitse poistettava(t) esto(t)" {
-                                message.components(|c| {
-                                    c.create_action_row(|r| {
-                                        r.create_select_menu(|m| {
-                                            m.custom_id("unblock_seller");
-                                            m.options(|o| {
-                                                for (i, id) in blacklist.iter().enumerate() {
-                                                    o.create_option(|oo| {
-                                                        oo.label(blacklist_names[i].clone());
-                                                        oo.value(id)
-                                                    });
-                                                }
-                                                o
+                            if blacklist.is_empty() {
+                                message.content("Ei estettyjä myyjiä!");
+                            } else {
+                                message.content(&content);
+                                if content == *"Valitse poistettava(t) esto(t)" {
+                                    message.components(|c| {
+                                        c.create_action_row(|r| {
+                                            r.create_select_menu(|m| {
+                                                m.custom_id("unblock_seller");
+                                                m.options(|o| {
+                                                    for (i, id) in blacklist.iter().enumerate() {
+                                                        o.create_option(|oo| {
+                                                            oo.label(blacklist_names[i].clone());
+                                                            oo.value(id)
+                                                        });
+                                                    }
+                                                    o
+                                                })
                                             })
                                         })
-                                    })
-                                });
-                            };
+                                    });
+                                };
+                            }
                             message
                         })
                 })
