@@ -13,7 +13,7 @@ impl Vahti {
         http: Arc<Http>,
         items: Vec<VahtiItem>,
     ) -> Result<(), anyhow::Error> {
-        println!("Sending {} items to the user {}", items.len(), self.user_id);
+        info!("Sending {} items to the user {}", items.len(), self.user_id);
         let user = http.get_user(self.user_id.try_into()?).await?;
         match self.site_id {
             1 => {
