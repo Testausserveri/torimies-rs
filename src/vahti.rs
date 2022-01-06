@@ -163,7 +163,7 @@ pub async fn update_vahtis(
                         }
                         let blacklist = db.fetch_user_blacklist(vahti.user_id).await.unwrap();
                         if blacklist
-                            .contains(&(item.seller_id, SiteId::from(item.url.as_str()) as i32))
+                            .contains(&(item.seller_id, SiteId::from(vahti.url.as_str()) as i32))
                         {
                             info!(
                                 "Seller {} blacklisted by user {}! Skipping!",
