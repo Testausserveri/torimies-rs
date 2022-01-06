@@ -140,9 +140,7 @@ impl Database {
         let vahdit = self.fetch_all_vahtis().await?;
         let ret: BTreeMap<String, Vec<Vahti>> =
             vahdit.into_iter().fold(BTreeMap::new(), |mut acc, v| {
-                acc.entry(v.url.clone())
-                    .or_default()
-                    .push(v);
+                acc.entry(v.url.clone()).or_default().push(v);
                 acc
             });
         Ok(ret)
@@ -167,12 +165,15 @@ impl Database {
         )
     }
 
-    pub async fn fetch_user_blacklist(&self, userid: i64) -> Result<Vec<i32>, anyhow::Error> {
+    pub async fn fetch_user_blacklist(
+        &self,
+        userid: i64,
+    ) -> Result<Vec<(i32, i32)>, anyhow::Error> {
         debug!("Fetching the blacklist for user {}...", userid);
         use crate::schema::Blacklists::dsl::*;
         Ok(Blacklists
-            .select(seller_id)
-            .load::<i32>(&self.database.get()?)?)
+            .select((seller_id, site_id))
+            .load::<(i32, i32)>(&self.database.get()?)?)
     }
 
     pub async fn add_seller_to_blacklist(
@@ -200,15 +201,21 @@ impl Database {
         &self,
         userid: i64,
         sellerid: i32,
+        siteid: i32,
     ) -> Result<usize, anyhow::Error> {
         info!(
             "Removing seller {} from the blacklist of user {}",
             sellerid, userid
         );
         use crate::schema::Blacklists::dsl::*;
-        Ok(
-            diesel::delete(Blacklists.filter(user_id.eq(userid).and(seller_id.eq(sellerid))))
-                .execute(&self.database.get()?)?,
+        Ok(diesel::delete(
+            Blacklists.filter(
+                user_id
+                    .eq(userid)
+                    .and(seller_id.eq(sellerid))
+                    .and(site_id.eq(siteid)),
+            ),
         )
+        .execute(&self.database.get()?)?)
     }
 }

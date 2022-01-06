@@ -37,13 +37,9 @@ pub enum SiteId {
 impl From<&str> for SiteId {
     fn from(url: &str) -> SiteId {
         match url {
-            _ if TORI_REGEX.is_match(url) => {
-                SiteId::Tori
-            },
-            _ if HUUTONET_REGEX.is_match(url) => {
-                SiteId::Huutonet
-            }
-            _ => SiteId::Unknown
+            _ if TORI_REGEX.is_match(url) => SiteId::Tori,
+            _ if HUUTONET_REGEX.is_match(url) => SiteId::Huutonet,
+            _ => SiteId::Unknown,
         }
     }
 }
@@ -153,7 +149,8 @@ pub async fn update_vahtis(
                     }
                     let mut items = Vec::new();
                     for item in currentitems.iter().rev() {
-                        if vahti.site_id == SiteId::Tori as i32 { // Only tori.fi has shit api
+                        if vahti.site_id == SiteId::Tori as i32 {
+                            // Only tori.fi has shit api
                             if itemhistory.lock().await.contains(item.ad_id, vahti.user_id) {
                                 debug!("Item {} in itemhistory! Skipping!", item.ad_id);
                                 continue;
@@ -162,10 +159,12 @@ pub async fn update_vahtis(
                                 item.ad_id,
                                 vahti.user_id,
                                 chrono::Local::now().timestamp(),
-                                );
+                            );
                         }
                         let blacklist = db.fetch_user_blacklist(vahti.user_id).await.unwrap();
-                        if blacklist.contains(&item.seller_id) {
+                        if blacklist
+                            .contains(&(item.seller_id, SiteId::from(item.url.as_str()) as i32))
+                        {
                             info!(
                                 "Seller {} blacklisted by user {}! Skipping!",
                                 &item.seller_id, vahti.user_id
@@ -174,7 +173,10 @@ pub async fn update_vahtis(
                         }
                         items.push(item.to_owned());
                     }
-                    vahti.send_updates(http.clone(), items.clone()).await.unwrap();
+                    vahti
+                        .send_updates(http.clone(), items.clone())
+                        .await
+                        .unwrap();
                     vahti.update(&db, currentitems[0].published).await.unwrap();
                 }
             }

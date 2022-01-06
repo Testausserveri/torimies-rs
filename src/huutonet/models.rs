@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use serde::Deserialize;
+
 use crate::vahti::VahtiItem;
 
 #[derive(Deserialize, Debug, Default)]
@@ -22,7 +23,7 @@ struct HuutonetImageLinks {
 
 #[derive(Deserialize, Debug, Default)]
 struct HuutonetImage {
-    links: HuutonetImageLinks
+    links: HuutonetImageLinks,
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -51,7 +52,9 @@ pub struct FullHuutonetItem {
 
 impl From<FullHuutonetItem> for VahtiItem {
     fn from(h: FullHuutonetItem) -> VahtiItem {
-        let published = chrono::DateTime::parse_from_str(&h.list_time, "%FT%T%:z").unwrap().timestamp();
+        let published = chrono::DateTime::parse_from_str(&h.list_time, "%FT%T%:z")
+            .unwrap()
+            .timestamp();
         let mut img_url = String::new();
         if !h.images.is_empty() {
             img_url = h.images[0].links.medium.clone();
@@ -66,7 +69,7 @@ impl From<FullHuutonetItem> for VahtiItem {
             seller_id: h.seller_id,
             location: h.location,
             ad_type: h.sale_method,
-            ad_id: h.id
+            ad_id: h.id,
         }
     }
 }

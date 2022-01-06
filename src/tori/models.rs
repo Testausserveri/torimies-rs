@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use serde::Deserialize;
+
 use crate::vahti::VahtiItem;
 
 #[derive(Deserialize, Debug, Clone, Default)]

@@ -10,7 +10,7 @@ pub async fn blacklist_seller(
 ) -> Result<String, anyhow::Error> {
     let db = ctx.get_db().await?;
     let blacklist = db.fetch_user_blacklist(userid.try_into()?).await?;
-    if blacklist.contains(&sellerid) {
+    if blacklist.contains(&(sellerid, siteid)) {
         info!(
             "Not blacklisting an already-blacklisted seller {} for the user {}",
             sellerid, userid

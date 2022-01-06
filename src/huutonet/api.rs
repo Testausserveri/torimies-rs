@@ -4,11 +4,11 @@ pub fn vahti_to_api(vahti: &str) -> String {
     let mut url = String::from("https://api.huuto.net/1.1/items?");
     if vahti.contains('&') {
         // Easy parse
-        url += &vahti[vahti.find('?').unwrap()+1..];
+        url += &vahti[vahti.find('?').unwrap() + 1..];
     } else {
         // Difficult parse
-        let mut args: Vec::<&str> = vahti.split('/').collect();
-        let args: Vec::<&str> = args.drain(4..).collect();
+        let mut args: Vec<&str> = vahti.split('/').collect();
+        let args: Vec<&str> = args.drain(4..).collect();
         for arg in args.chunks_exact(2) {
             url += &format!("&{}={}", arg[0], arg[1]);
         }
