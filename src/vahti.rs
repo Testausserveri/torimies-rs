@@ -28,6 +28,7 @@ pub struct VahtiItem {
     pub ad_id: i64,
 }
 
+#[derive(Clone, Copy)]
 pub enum SiteId {
     Unknown = 0,
     Tori = 1,
@@ -138,6 +139,7 @@ pub async fn update_vahtis(
                 .text()
                 .await
                 .unwrap();
+            let site_id = SiteId::from(vahtis[0].url.as_str());
             for vahti in vahtis {
                 if let Ok(mut currentitems) = vahti.parse_after_from_text(&res).await {
                     if currentitems.len() == 10 {
@@ -149,21 +151,19 @@ pub async fn update_vahtis(
                     }
                     let mut items = Vec::new();
                     for item in currentitems.iter().rev() {
-                        if vahti.site_id == SiteId::Tori as i32 {
-                            // Only tori.fi has shit api
-                            if itemhistory.lock().await.contains(item.ad_id, vahti.user_id) {
-                                debug!("Item {} in itemhistory! Skipping!", item.ad_id);
-                                continue;
-                            }
-                            itemhistory.lock().await.add_item(
-                                item.ad_id,
-                                vahti.user_id,
-                                chrono::Local::now().timestamp(),
-                            );
+                        if itemhistory.lock().await.contains(item.ad_id, vahti.user_id, site_id as i32) {
+                            debug!("Item {},{} in itemhistory! Skipping!", item.ad_id, site_id as i32);
+                            continue;
                         }
+                        itemhistory.lock().await.add_item(
+                            item.ad_id,
+                            vahti.user_id,
+                            site_id as i32,
+                            chrono::Local::now().timestamp(),
+                            );
                         let blacklist = db.fetch_user_blacklist(vahti.user_id).await.unwrap();
                         if blacklist
-                            .contains(&(item.seller_id, SiteId::from(vahti.url.as_str()) as i32))
+                            .contains(&(item.seller_id, site_id as i32))
                         {
                             info!(
                                 "Seller {} blacklisted by user {}! Skipping!",
