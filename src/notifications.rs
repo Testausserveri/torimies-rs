@@ -57,7 +57,7 @@ impl Vahti {
                                     b.url(&item.url)
                                 });
                                 r.create_button(|b| {
-                                    b.label("Hakulinkki");
+                                    b.label("Avaa Hakusivu");
                                     b.style(ButtonStyle::Link);
                                     b.url(&self.url)
                                 });
@@ -114,7 +114,7 @@ impl Vahti {
                                     b.url(&item.url)
                                 });
                                 r.create_button(|b| {
-                                    b.label("Hakulinkki");
+                                    b.label("Avaa Hakusivu");
                                     b.style(ButtonStyle::Link);
                                     b.url(&self.url)
                                 });
