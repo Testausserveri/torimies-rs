@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::{Local, TimeZone};
+use regex::Regex;
 use serde_json::Value;
 use serenity::client::Context;
 use serenity::http::Http;
@@ -40,60 +41,68 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<Strin
 }
 
 fn vahti_to_api(vahti: &str) -> String {
-    let mut url = "https://api.tori.fi/api/v1.2/public/ads".to_owned()
-        + &vahti.to_owned()[vahti.find('?').unwrap()..];
-    let mut startprice: String = "".to_string();
-    let mut endprice: String = "".to_string();
+    let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
+    let args = &vahti[vahti.find('?').unwrap() + 1..];
     let mut price_set = false;
-    if let Some(index) = url.find("ps=") {
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        startprice = url[index + 3..endindex + index].to_string();
-        price_set = true;
-    }
-    if let Some(index) = url.find("pe=") {
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        endprice = url[index + 3..endindex + index].to_string();
-        price_set = true;
-    }
-    url = url.replace("cg=", "category=");
-    // because in the API category=0 yealds no results and in the search it just means
-    // no category was specified
-    url = url.replace("&category=0", "");
-    if let Some(index) = url.find("w=") {
-        let region;
-        let endindex = url[index..].find('&').unwrap_or(url.len() - index);
-        let num = url[index + 2..endindex + index].parse::<i32>().unwrap();
-        if num >= 100 {
-            region = num - 100;
-            url = url.replace(&url[index..endindex + index], &format!("region={}", region));
-        } else if url.contains("ca=") {
-            let nindex = url.find("ca=").unwrap();
-            let nendindex = url[nindex..].find('&').unwrap_or(url.len() - nindex);
-            let num = &url[nindex + 3..nendindex + nindex];
-            url = url.replace(&url[index..endindex + index], &format!("region={}", num));
+    let mut region_defined = false;
+    let mut startprice = "";
+    let mut endprice = "";
+    let mut api_args = Vec::<(String, String)>::new();
+    for arg in args.split('&') {
+        let mut parts: Vec<&str> = arg.split('=').collect();
+        if parts.len() == 1 {
+            parts.push("");
         }
-    } else {
-        url = url.replace("ca=", "region=");
+        match parts[0] {
+            "ps" => {
+                startprice = parts[1];
+                price_set = true;
+            }
+            "pe" => {
+                endprice = parts[1];
+                price_set = true;
+            }
+            "cg" => {
+                if parts[1] != "0" {
+                    api_args.push(("category".to_string(), parts[1].to_string()));
+                }
+            }
+            "st" => api_args.push(("ad_type".to_string(), parts[1].to_string())),
+            "m" => api_args.push(("area".to_string(), parts[1].to_string())),
+            "w" => {
+                let reg: i32 = parts[1].parse().unwrap();
+                if reg >= 100 {
+                    region_defined = true;
+                    api_args.push(("region".to_string(), (reg - 100).to_string()));
+                }
+            }
+            "ca" => api_args.push(("caregion".to_string(), parts[1].to_string())),
+            _ => api_args.push((parts[0].to_string(), parts[1].to_string())),
+        }
     }
-    url = url.replace("st=", "ad_type=");
-    url = url.replace("m=", "area=");
-    url = url.replace("_s", ""); // FIXME: not a good solution
-    url = url.replace(" ", "+");
+    for arg in api_args {
+        if arg.0 == "caregion" {
+            if !region_defined {
+                url += &format!("&{}={}", arg.0, arg.1);
+            }
+        } else {
+            url += &format!("&{}={}", arg.0, arg.1);
+        }
+    }
     url = url.replace("%E4", "ä");
     url = url.replace("%C4", "Ä");
     url = url.replace("%F6", "ö");
     url = url.replace("%D6", "Ö");
-    if price_set {
-        url = url + &format!("&suborder={}-{}", &startprice, &endprice);
+    if price_set && !startprice.is_empty() && !endprice.is_empty() {
+        url += &format!("&suborder={}-{}", &startprice, &endprice);
     }
     url
 }
 
 pub async fn is_valid_url(url: &str) -> bool {
-    if !url.starts_with("https://www.tori.fi/") {
-        return false;
-    }
-    if !url.contains('?') {
+    let tori_regex = Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap();
+    if !tori_regex.is_match(url) {
+        info!("Ignoring invalid url: {}", url);
         return false;
     }
     let url = vahti_to_api(url) + "&lim=0";
@@ -112,7 +121,7 @@ pub async fn is_valid_url(url: &str) -> bool {
 
 pub async fn update_all_vahtis(
     db: Database,
-    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    itemhistory: Arc<Mutex<ItemHistory>>,
     http: Arc<Http>,
 ) -> Result<(), anyhow::Error> {
     itemhistory.lock().await.purge_old();
@@ -123,7 +132,7 @@ pub async fn update_all_vahtis(
 
 pub async fn update_vahtis(
     db: Database,
-    mut itemhistory: Arc<Mutex<ItemHistory>>,
+    itemhistory: Arc<Mutex<ItemHistory>>,
     httpt: Arc<Http>,
     vahtis: BTreeMap<String, Vec<(i64, i64)>>,
 ) -> Result<(), anyhow::Error> {
@@ -148,8 +157,7 @@ pub async fn update_vahtis(
                                 .unwrap()
                                 .text()
                                 .await
-                                .unwrap()
-                                .clone(),
+                                .unwrap(),
                             last_updated,
                         )
                         .await
@@ -195,21 +203,24 @@ pub async fn update_vahtis(
                                     ),
                                     true,
                                 );
-                                e.field("Sijainti", item.location.clone(), true);
+                                e.field("Sijainti", &item.location, true);
                                 e.field(
                                     "Ilmoitus Jätetty",
                                     Local.timestamp(item.published, 0).format("%d/%m/%Y %R"),
                                     true,
                                 );
                                 e.field("Ilmoitustyyppi", item.ad_type.to_string(), true);
-                                e.image(item.img_url.clone())
+                                if !item.img_url.is_empty() {
+                                    e.image(&item.img_url);
+                                }
+                                e
                             });
                             m.components(|c| {
                                 c.create_action_row(|r| {
                                     r.create_button(|b| {
                                         b.label("Avaa ilmoitus");
                                         b.style(ButtonStyle::Link);
-                                        b.url(item.url.clone())
+                                        b.url(&item.url)
                                     });
                                     r.create_button(|b| {
                                         b.label("Avaa hakusivu");

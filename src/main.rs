@@ -34,7 +34,6 @@ use serenity::model::interactions::application_command::{
 use serenity::model::interactions::Interaction;
 use serenity::prelude::*;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::database::Database;
 use crate::extensions::ClientContextExt;
@@ -106,9 +105,7 @@ struct General;
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
 
-    FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::new("info,sqlx::query=error"))
-        .init();
+    tracing_subscriber::fmt::init();
 
     let database = Database::new().await;
     let itemhistory = ItemHistory::new();
@@ -160,10 +157,9 @@ async fn main() {
     let mut scheduler = Scheduler::with_tz(chrono::Local);
 
     let http = client.cache_and_http.http.clone();
-    let data = client.data.clone();
 
     let database = client.get_db().await.unwrap();
-    let mut itemhistory = data.write().await.get_mut::<ItemHistory>().unwrap().clone();
+    let itemhistory = client.get_itemhistory().await.unwrap();
 
     scheduler.every(update_interval.second()).run(move || {
         if let Err(e) = runtime.block_on(vahti::update_all_vahtis(

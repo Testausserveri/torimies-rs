@@ -1,4 +1,4 @@
-use serenity::model::interactions::message_component::{ActionRowComponent, Button};
+use serenity::model::interactions::message_component::ActionRowComponent;
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 
@@ -56,7 +56,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 blacklist_names.push(
                     get_seller_name_from_id(*entry)
                         .await
-                        .unwrap_or("Unknown Seller".to_string()),
+                        .unwrap_or(String::from("Unknown Seller")),
                 );
             }
             command
@@ -64,25 +64,29 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| {
-                            message.content(&content);
-                            if content == *"Valitse poistettava(t) esto(t)" {
-                                message.components(|c| {
-                                    c.create_action_row(|r| {
-                                        r.create_select_menu(|m| {
-                                            m.custom_id("unblock_seller");
-                                            m.options(|o| {
-                                                for (i, id) in blacklist.iter().enumerate() {
-                                                    o.create_option(|oo| {
-                                                        oo.label(blacklist_names[i].clone());
-                                                        oo.value(id)
-                                                    });
-                                                }
-                                                o
+                            if blacklist.is_empty() {
+                                message.content("Ei estettyjä myyjiä!");
+                            } else {
+                                message.content(&content);
+                                if content == *"Valitse poistettava(t) esto(t)" {
+                                    message.components(|c| {
+                                        c.create_action_row(|r| {
+                                            r.create_select_menu(|m| {
+                                                m.custom_id("unblock_seller");
+                                                m.options(|o| {
+                                                    for (i, id) in blacklist.iter().enumerate() {
+                                                        o.create_option(|oo| {
+                                                            oo.label(blacklist_names[i].clone());
+                                                            oo.value(id)
+                                                        });
+                                                    }
+                                                    o
+                                                })
                                             })
                                         })
-                                    })
-                                });
-                            };
+                                    });
+                                };
+                            }
                             message
                         })
                 })
@@ -109,13 +113,12 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                         }
                     })
                     .unwrap();
-                let response;
-                if url == "" {
+                let response = if url.is_empty() {
                     error!("No search url in button, not deleting vahti");
-                    response = String::from("Virhe tapahtui vahdin poistossa")
+                    String::from("Virhe tapahtui vahdin poistossa")
                 } else {
-                    response = remove_vahti(&ctx, &url, userid).await.unwrap();
-                }
+                    remove_vahti(&ctx, &url, userid).await.unwrap()
+                };
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)

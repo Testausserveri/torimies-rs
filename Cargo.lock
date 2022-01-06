@@ -1460,6 +1460,7 @@ dependencies = [
  "openssl",
  "regex",
  "reqwest",
+ "serde",
  "serde_json",
  "serenity",
  "tokio",
