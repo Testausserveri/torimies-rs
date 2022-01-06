@@ -4,7 +4,6 @@ use serenity::prelude::*;
 
 use crate::blacklist::blacklist_seller;
 use crate::extensions::ClientContextExt;
-use crate::tori::seller::get_seller_name_from_id;
 use crate::vahti::{is_valid_url, new_vahti, remove_vahti};
 
 pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
@@ -53,35 +52,35 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 .unwrap();
             let mut blacklist_names = Vec::new();
             for entry in &blacklist {
-                blacklist_names.push(
-                    get_seller_name_from_id(*entry)
+                blacklist_names.push(match entry.1 {
+                    1 => crate::tori::seller::get_seller_name_from_id(entry.0)
                         .await
                         .unwrap_or(String::from("Unknown Seller")),
-                );
+                    2 => crate::huutonet::seller::get_seller_name_from_id(entry.0)
+                        .await
+                        .unwrap_or(String::from("Unknown Seller")),
+                    _ => String::from("Unknown Seller"),
+                });
             }
             command
                 .create_interaction_response(&ctx.http, |response| {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| {
-                            if blacklist.is_empty() {
-                                message.content("Ei estettyjä myyjiä!");
-                            } else {
-                                message.content(&content);
-                                if content == *"Valitse poistettava(t) esto(t)" {
-                                    message.components(|c| {
-                                        c.create_action_row(|r| {
-                                            r.create_select_menu(|m| {
-                                                m.custom_id("unblock_seller");
-                                                m.options(|o| {
-                                                    for (i, id) in blacklist.iter().enumerate() {
-                                                        o.create_option(|oo| {
-                                                            oo.label(blacklist_names[i].clone());
-                                                            oo.value(id)
-                                                        });
-                                                    }
-                                                    o
-                                                })
+                            message.content(&content);
+                            if content == *"Valitse poistettava(t) esto(t)" {
+                                message.components(|c| {
+                                    c.create_action_row(|r| {
+                                        r.create_select_menu(|m| {
+                                            m.custom_id("unblock_seller");
+                                            m.options(|o| {
+                                                for (i, ids) in blacklist.iter().enumerate() {
+                                                    o.create_option(|oo| {
+                                                        oo.label(blacklist_names[i].clone());
+                                                        oo.value(format!("{},{}", ids.0, ids.1))
+                                                    });
+                                                }
+                                                o
                                             })
                                         })
                                     });
@@ -130,19 +129,51 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 let userid = button.user.id.0;
                 let message = button.message.clone().regular().unwrap();
                 let embed = &message.embeds[0];
+                let mut url = String::new();
+                message.components[0]
+                    .components
+                    .iter()
+                    .find(|b| {
+                        if let ActionRowComponent::Button(bb) = b {
+                            if bb.label.as_ref().unwrap() == "Hakulinkki" {
+                                url = bb.url.as_ref().unwrap().clone();
+                                return true;
+                            }
+                            false
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap();
+                if url.is_empty() {
+                    panic!("Cannot determine search url");
+                }
                 let seller_string = &embed
                     .fields
                     .iter()
                     .find(|f| f.name == "Myyjä")
                     .unwrap()
                     .value;
-                let sellerid = seller_string
-                    [seller_string.rfind('=').unwrap() + 1..seller_string.find(')').unwrap()]
-                    .parse::<i64>()
-                    .unwrap();
-                let response = blacklist_seller(&ctx, userid, sellerid as i32)
-                    .await
-                    .unwrap();
+
+                let sellerid: i32 = match crate::vahti::SiteId::from(url.as_str()) {
+                    crate::vahti::SiteId::Tori => seller_string
+                        [seller_string.rfind('=').unwrap() + 1..seller_string.find(')').unwrap()]
+                        .parse()
+                        .unwrap(),
+                    crate::vahti::SiteId::Huutonet => seller_string
+                        [seller_string.rfind('/').unwrap() + 1..seller_string.find(')').unwrap()]
+                        .parse()
+                        .unwrap(),
+                    _ => panic!("Cannot block seller from unknown site"),
+                };
+                let response = blacklist_seller(
+                    &ctx,
+                    userid,
+                    sellerid,
+                    crate::vahti::SiteId::from(url.as_str()) as i32,
+                )
+                .await
+                .unwrap();
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)
@@ -153,8 +184,10 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
             } else if button.data.custom_id == "unblock_seller" {
                 let db = ctx.get_db().await.unwrap();
                 let userid = button.user.id.0;
-                let sellerid = button.data.values[0].parse::<i64>().unwrap();
-                db.remove_seller_from_blacklist(userid.try_into().unwrap(), sellerid as i32)
+                let ids: Vec<&str> = button.data.values[0].split(',').collect();
+                let sellerid = ids[0].parse::<i32>().unwrap();
+                let siteid = ids[1].parse::<i32>().unwrap();
+                db.remove_seller_from_blacklist(userid.try_into().unwrap(), sellerid, siteid)
                     .await
                     .unwrap();
                 button

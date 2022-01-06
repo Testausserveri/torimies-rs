@@ -1,9 +1,11 @@
 mod blacklist;
 pub mod database;
 pub mod extensions;
+mod huutonet;
 mod interaction;
 mod itemhistory;
 pub mod models;
+mod notifications;
 mod owner;
 pub mod schema;
 mod tori;
