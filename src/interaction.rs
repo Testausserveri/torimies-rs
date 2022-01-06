@@ -83,8 +83,8 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                                                 o
                                             })
                                         })
-                                    });
-                                };
+                                    })
+                                });
                             }
                             message
                         })
