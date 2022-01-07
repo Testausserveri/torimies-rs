@@ -139,7 +139,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .iter()
                     .find(|b| {
                         if let ActionRowComponent::Button(bb) = b {
-                            if bb.label.as_ref().unwrap() == "Hakulinkki" {
+                            if bb.label.as_ref().unwrap() == "Avaa Hakusivu" {
                                 url = bb.url.as_ref().unwrap().clone();
                                 return true;
                             }
