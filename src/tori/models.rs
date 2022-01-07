@@ -99,6 +99,7 @@ pub struct FullToriItem {
     list_id: String,
     #[serde(default)]
     list_id_code: String,
+    #[serde(default)]
     list_price: ToriListPrice,
     locations: Vec<ToriLocation>,
     #[serde(default)]

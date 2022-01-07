@@ -59,7 +59,7 @@ impl Vahti {
                                 r.create_button(|b| {
                                     b.label("Avaa Hakusivu");
                                     b.style(ButtonStyle::Link);
-                                    b.url(&self.url)
+                                    b.url(&self.url.replace(' ', "%20"))
                                 });
                                 r.create_button(|b| {
                                     b.label("Estä myyjä");
@@ -116,7 +116,7 @@ impl Vahti {
                                 r.create_button(|b| {
                                     b.label("Avaa Hakusivu");
                                     b.style(ButtonStyle::Link);
-                                    b.url(&self.url)
+                                    b.url(&self.url.replace(' ', "%20"))
                                 });
                                 r.create_button(|b| {
                                     b.label("Estä myyjä");
