@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  torimies-rs:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - .env:/app/.env
+    
