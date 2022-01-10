@@ -172,8 +172,9 @@ impl Database {
         debug!("Fetching the blacklist for user {}...", userid);
         use crate::schema::Blacklists::dsl::*;
         Ok(Blacklists
-            .select((seller_id, site_id))
-            .load::<(i32, i32)>(&self.database.get()?)?)
+           .filter(user_id.eq(userid))
+           .select((seller_id, site_id))
+           .load::<(i32, i32)>(&self.database.get()?)?)
     }
 
     pub async fn add_seller_to_blacklist(
