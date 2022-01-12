@@ -67,11 +67,11 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| {
-                            if blacklist.is_empty() {
-                                message.content("Ei estettyjä myyjiä!");
-                            } else {
-                                message.content(&content);
-                                if content == *"Valitse poistettava(t) esto(t)" {
+                            message.content(&content);
+                            if content == *"Valitse poistettava(t) esto(t)" {
+                                if blacklist.is_empty() {
+                                    message.content("Ei estettyjä myyjiä!");
+                                } else {
                                     message.components(|c| {
                                         c.create_action_row(|r| {
                                             r.create_select_menu(|m| {
