@@ -4,8 +4,5 @@ services:
   torimies-rs:
     build: .
     restart: unless-stopped
-    env_file:
-      - .env # dynamic volume mapping (sqlite dir changes when modified the env variable)
     volumes:
-      - .env:/app/.env # rust project access env vars from file
-      - ./database.sqlite:/app/database.sqlite # has to match the env variable
+      - ./:/app

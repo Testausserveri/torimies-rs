@@ -2,3 +2,4 @@
 /.env
 /vendor
 /result
+database.sqlite*

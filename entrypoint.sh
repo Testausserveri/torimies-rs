@@ -3,4 +3,4 @@ while [ 1 ];
 do
     /usr/local/cargo/bin/diesel database setup && break;
 done
-./target/release/torimies-rs
+/usr/local/cargo/release/torimies-rs
