@@ -2,10 +2,13 @@ FROM rust:latest
 
 WORKDIR /app
 
-COPY . .
+COPY Cargo* ./
 
-# Cache download
+COPY src/main.rs ./src/
+
 RUN cargo fetch 
+
+COPY . .
 
 RUN cargo build --release --target-dir /usr/local/cargo
 
