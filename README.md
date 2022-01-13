@@ -25,6 +25,18 @@ Make sure to create the `.env` file if it does not exist and ensure that it cont
 Optional variables:
 * `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
 
+### With Docker
+
+Bot can be started by running command `docker-compose up -d`.
+
+Log viewing happens with command `docker-compose logs`.
+
+`docker-compose up -d --build` rebuilds the Docker image and restarts the container with the new image.
+
+Bot can be shut down with command `docker-compose down`.
+
+### Without Docker
+
 Before starting the bot you must setup the sqlite-database. This can be done with the `diesel` tool, which is used in these instructions.
 
 `diesel` can be installed using `cargo install diesel_cli`.

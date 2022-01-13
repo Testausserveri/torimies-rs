@@ -1,0 +1,6 @@
+*
+!src
+!Cargo*
+!diesel*
+!migrations
+!entrypoint.sh
