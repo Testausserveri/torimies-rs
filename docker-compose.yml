@@ -5,4 +5,6 @@ services:
     build: .
     restart: unless-stopped
     volumes:
-      - ./:/app
+      - .env:/app/.env
+      - ./migrations:/app/migrations
+      - ./database.sqlite:/app/database.sqlite
