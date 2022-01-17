@@ -84,7 +84,7 @@ pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, 
     }
     match db.add_vahti_entry(url, userid.try_into()?).await {
         Ok(_) => Ok("Vahti lisätty!".to_string()),
-        Err(_) => bail!("Virhe tapahtui vahdin lisäyksessä!"),
+        Err(e) => bail!("Virhe tapahtui vahdin lisäyksessä!: {}", e),
     }
 }
 
@@ -98,7 +98,7 @@ pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<Strin
     }
     match db.remove_vahti_entry(url, userid.try_into()?).await {
         Ok(_) => Ok("Vahti poistettu!".to_string()),
-        Err(_) => bail!("Virhe tapahtui vahdin poistamisessa!".to_string()),
+        Err(e) => bail!("Virhe tapahtui vahdin poistamisessa!: {}", e),
     }
 }
 
