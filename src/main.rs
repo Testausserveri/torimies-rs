@@ -81,7 +81,6 @@ impl EventHandler for Handler {
                             option
                                 .name("url")
                                 .description("Hakusivun linkki")
-                                .required(true)
                                 .kind(ApplicationCommandOptionType::String)
                         })
                 })

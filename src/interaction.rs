@@ -38,7 +38,11 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                             _ => unreachable!(),
                         }
                     }
-                    remove_vahti(&ctx, &url, command.user.id.0).await.unwrap()
+                    if !url.is_empty() {
+                        remove_vahti(&ctx, &url, command.user.id.0).await.unwrap()
+                    } else {
+                        String::from("Valitse poistettava(t) vahti/vahdit")
+                    }
                 }
                 "poistaesto" => String::from("Valitse poistettava(t) esto(t)"),
                 _ => {
@@ -47,7 +51,11 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
             };
             let db = ctx.get_db().await.unwrap();
             let blacklist = db
-                .fetch_user_blacklist(command.user.id.0.try_into().unwrap())
+                .fetch_user_blacklist(command.user.id.0 as i64)
+                .await
+                .unwrap();
+            let vahtilist = db
+                .fetch_vahti_entries_by_user_id(command.user.id.0 as i64)
                 .await
                 .unwrap();
             let mut blacklist_names = Vec::new();
@@ -81,6 +89,27 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                                                         o.create_option(|oo| {
                                                             oo.label(blacklist_names[i].clone());
                                                             oo.value(format!("{},{}", ids.0, ids.1))
+                                                        });
+                                                    }
+                                                    o
+                                                })
+                                            })
+                                        })
+                                    });
+                                }
+                            } else if content == *"Valitse poistettava(t) vahti/vahdit" {
+                                if vahtilist.is_empty() {
+                                    message.content("Ei vahteja! Aseta vahti komennolla `/vahti`");
+                                } else {
+                                    message.components(|c| {
+                                        c.create_action_row(|r| {
+                                            r.create_select_menu(|m| {
+                                                m.custom_id("remove_vahti_menu");
+                                                m.options(|o| {
+                                                    for vahti in &vahtilist {
+                                                        o.create_option(|oo| {
+                                                            oo.label(&vahti.url);
+                                                            oo.value(&vahti.url)
                                                         });
                                                     }
                                                     o
@@ -198,6 +227,17 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|m| m.content("Esto poistettu!"))
+                    })
+                    .await
+                    .unwrap()
+            } else if button.data.custom_id == "remove_vahti_menu" {
+                let userid = button.user.id.0;
+                let url = button.data.values[0].to_string();
+                crate::vahti::remove_vahti(&ctx, &url, userid).await.unwrap();
+                button
+                    .create_interaction_response(&ctx.http, |r| {
+                        r.kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|m| m.content(format!("Poistettu vahti: `{}`", url)))
                     })
                     .await
                     .unwrap()
