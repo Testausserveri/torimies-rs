@@ -64,9 +64,8 @@ pub fn vahti_to_api(vahti: &str) -> String {
 
 pub async fn is_valid_url(url: &str) -> bool {
     let url = vahti_to_api(url) + "&lim=0";
-    let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
-    let response_json: Value = serde_json::from_str(&response).unwrap();
-    if let Some(counter_map) = response_json["counter_map"].as_object() {
+    let response = reqwest::get(&url).await.unwrap().json::<Value>().await.unwrap();
+    if let Some(counter_map) = response["counter_map"].as_object() {
         if let Some(amount) = counter_map["all"].as_i64() {
             amount > 0
         } else {
