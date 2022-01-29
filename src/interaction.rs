@@ -1,5 +1,5 @@
 use serenity::model::interactions::message_component::ActionRowComponent;
-use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::model::interactions::{Interaction, InteractionResponseType, InteractionApplicationCommandCallbackDataFlags};
 use serenity::prelude::*;
 
 use crate::blacklist::blacklist_seller;
@@ -76,6 +76,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                         .kind(InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|message| {
                             message.content(&content);
+                            message.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
                             if content == *"Valitse poistettava(t) esto(t)" {
                                 if blacklist.is_empty() {
                                     message.content("Ei estettyjä myyjiä!");
