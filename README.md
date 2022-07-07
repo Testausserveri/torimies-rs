@@ -54,7 +54,7 @@ It is also important to specify the following keys in Github Secrets:
 
 | Key | Value |
 | --- | ----- |
-| SSH_DIR | Full path to cloned repository (e.g. `/home/testauskoira/testauskoira-rs`) |
+| SSH_DIR | Full path to cloned repository (e.g. `/home/torimies/torimies-rs`) |
 | SSH_IP | Server IP address |
 | SSH_PRIVATE_KEY | **Private** SSH-key |
 | SSH_USER | SSH username |
