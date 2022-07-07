@@ -46,6 +46,19 @@ to automatically set up the database, deleting any existing database.
 
 The binary builds include a pre-initialized database.
 
+### Autodeploy
+
+This repository is configured to publish itself automatically to specified server. Clone this repository to the server (where you want the bot to run) and set correct values `.env` file. If there are new change to `main` branch, the server receives an automatic update of the new image (Github worker builds this image). 
+
+It is also important to specify the following keys in Github Secrets:
+
+| Key | Value |
+| --- | ----- |
+| SSH_DIR | Full path to cloned repository (e.g. `/home/testauskoira/testauskoira-rs`) |
+| SSH_IP | Server IP address |
+| SSH_PRIVATE_KEY | **Private** SSH-key |
+| SSH_USER | SSH username |
+
 #### For databases setup before diesel-migration
 
 If you have a database with pre-existing data, the `diesel` tool wont be able to apply the migrations.
