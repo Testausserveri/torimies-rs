@@ -46,6 +46,10 @@ to automatically set up the database, deleting any existing database.
 
 The binary builds include a pre-initialized database.
 
+### Autodeploy
+
+Use watchtower to pull automatically the latest image. 
+
 #### For databases setup before diesel-migration
 
 If you have a database with pre-existing data, the `diesel` tool wont be able to apply the migrations.
