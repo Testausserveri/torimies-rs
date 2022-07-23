@@ -2,10 +2,8 @@ version: '3'
 
 services:
   torimies-rs:
-    build: .
     image: ghcr.io/testausserveri/torimies-rs:main
     restart: unless-stopped
     volumes:
       - .env:/app/.env
-      - ./migrations:/app/migrations
       - ./database.sqlite:/app/database.sqlite
