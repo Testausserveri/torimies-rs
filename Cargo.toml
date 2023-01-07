@@ -6,9 +6,9 @@ authors = ["Luukas Pörtfors <lajp@iki.fi>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies.serenity]
-version = "0.10.9"
+version = "0.11"
 default-features = false
-features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework", "unstable_discord_api"]
+features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework"]
 
 [dependencies.tokio]
 version = "1.13"

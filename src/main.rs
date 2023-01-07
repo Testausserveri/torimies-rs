@@ -1,5 +1,6 @@
 mod blacklist;
 pub mod database;
+mod discord;
 pub mod extensions;
 mod huutonet;
 mod interaction;
@@ -28,12 +29,10 @@ use serenity::client::bridge::gateway::ShardManager;
 use serenity::framework::standard::macros::group;
 use serenity::framework::standard::*;
 use serenity::http::Http;
+use serenity::model::application::command::Command;
+use serenity::model::application::interaction::Interaction;
 use serenity::model::event::ResumedEvent;
 use serenity::model::gateway::Ready;
-use serenity::model::interactions::application_command::{
-    ApplicationCommand, ApplicationCommandOptionType,
-};
-use serenity::model::interactions::Interaction;
 use serenity::prelude::*;
 use tracing::{error, info};
 
@@ -59,39 +58,13 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
-        ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-            commands
-                .create_application_command(|command| {
-                    command
-                        .name("vahti")
-                        .description("Luo uusi vahti")
-                        .create_option(|option| {
-                            option
-                                .name("url")
-                                .description("Hakusivun linkki")
-                                .required(true)
-                                .kind(ApplicationCommandOptionType::String)
-                        })
-                })
-                .create_application_command(|command| {
-                    command
-                        .name("poistavahti")
-                        .description("Poista olemassaoleva vahti")
-                        .create_option(|option| {
-                            option
-                                .name("url")
-                                .description("Hakusivun linkki")
-                                .kind(ApplicationCommandOptionType::String)
-                        })
-                })
-                .create_application_command(|command| {
-                    command
-                        .name("poistaesto")
-                        .description("Salli aiemmin estetty myyjä")
-                })
+
+        let _ = Command::create_global_application_command(&ctx.http, |command| {
+            discord::commands::vahti::register(command);
+            discord::commands::poistavahti::register(command);
+            discord::commands::poistaesto::register(command)
         })
-        .await
-        .unwrap();
+        .await;
     }
     async fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed");
@@ -123,7 +96,7 @@ async fn main() {
         .parse()
         .expect("Update interval is invalid");
 
-    let http = Http::new_with_token(&token);
+    let http = Http::new(&token);
 
     let (owner, _bot_id) = match http.get_current_application_info().await {
         Ok(info) => {
@@ -138,7 +111,7 @@ async fn main() {
         .configure(|c| c.owners(owner).prefix("!"))
         .group(&GENERAL_GROUP);
 
-    let mut client = Client::builder(&token)
+    let mut client = Client::builder(&token, GatewayIntents::non_privileged())
         .application_id(application_id)
         .framework(framework)
         .event_handler(Handler)

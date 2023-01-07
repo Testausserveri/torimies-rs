@@ -1,135 +1,41 @@
-use serenity::model::interactions::message_component::ActionRowComponent;
-use serenity::model::interactions::{Interaction, InteractionResponseType, InteractionApplicationCommandCallbackDataFlags};
+use serenity::model::application::component::ActionRowComponent;
+use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 
 use crate::blacklist::blacklist_seller;
 use crate::extensions::ClientContextExt;
-use crate::vahti::{is_valid_url, new_vahti, remove_vahti};
+use crate::vahti::remove_vahti;
 
 pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
     match interaction {
         Interaction::ApplicationCommand(command) => {
-            let content = match command.data.name.as_str() {
-                "vahti" => {
-                    let mut url: String = "".to_string();
-                    for a in &command.data.options {
-                        match a.name.as_str() {
-                            "url" => {
-                                let tempurl = a.value.as_ref().unwrap();
-                                url = tempurl.as_str().unwrap().to_string();
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    if !is_valid_url(&url).await {
-                        "Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.".to_string()
-                    } else {
-                        new_vahti(&ctx, &url, command.user.id.0).await.unwrap()
-                    }
-                }
-                "poistavahti" => {
-                    let mut url: String = "".to_string();
-                    for a in &command.data.options {
-                        match a.name.as_str() {
-                            "url" => {
-                                let tempurl = a.value.as_ref().unwrap();
-                                url = tempurl.as_str().unwrap().to_string();
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    if !url.is_empty() {
-                        remove_vahti(&ctx, &url, command.user.id.0).await.unwrap()
-                    } else {
-                        String::from("Valitse poistettava(t) vahti/vahdit")
-                    }
-                }
-                "poistaesto" => String::from("Valitse poistettava(t) esto(t)"),
-                _ => {
-                    unreachable!();
-                }
-            };
-            let db = ctx.get_db().await.unwrap();
-            let blacklist = db
-                .fetch_user_blacklist(command.user.id.0 as i64)
-                .await
-                .unwrap();
-            let vahtilist = db
-                .fetch_vahti_entries_by_user_id(command.user.id.0 as i64)
-                .await
-                .unwrap();
-            let mut blacklist_names = Vec::new();
-            for entry in &blacklist {
-                blacklist_names.push(match entry.1 {
-                    1 => crate::tori::seller::get_seller_name_from_id(entry.0)
-                        .await
-                        .unwrap_or(String::from("Unknown Seller")),
-                    2 => crate::huutonet::seller::get_seller_name_from_id(entry.0)
-                        .await
-                        .unwrap_or(String::from("Unknown Seller")),
-                    _ => String::from("Unknown Seller"),
-                });
-            }
             command
                 .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| {
-                            message.content(&content);
-                            message.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
-                            if content == *"Valitse poistettava(t) esto(t)" {
-                                if blacklist.is_empty() {
-                                    message.content("Ei estettyjä myyjiä!");
-                                } else {
-                                    message.components(|c| {
-                                        c.create_action_row(|r| {
-                                            r.create_select_menu(|m| {
-                                                m.custom_id("unblock_seller");
-                                                m.options(|o| {
-                                                    for (i, ids) in blacklist.iter().enumerate() {
-                                                        o.create_option(|oo| {
-                                                            oo.label(blacklist_names[i].clone());
-                                                            oo.value(format!("{},{}", ids.0, ids.1))
-                                                        });
-                                                    }
-                                                    o
-                                                })
-                                            })
-                                        })
-                                    });
-                                }
-                            } else if content == *"Valitse poistettava(t) vahti/vahdit" {
-                                if vahtilist.is_empty() {
-                                    message.content("Ei vahteja! Aseta vahti komennolla `/vahti`");
-                                } else {
-                                    message.components(|c| {
-                                        c.create_action_row(|r| {
-                                            r.create_select_menu(|m| {
-                                                m.custom_id("remove_vahti_menu");
-                                                m.options(|o| {
-                                                    for vahti in &vahtilist {
-                                                        o.create_option(|oo| {
-                                                            oo.label(&vahti.url);
-                                                            oo.value(&vahti.url)
-                                                        });
-                                                    }
-                                                    o
-                                                })
-                                            })
-                                        })
-                                    });
-                                }
-                            }
-                            message
-                        })
+                    response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
                 })
                 .await
-                .unwrap()
+                .unwrap();
+
+            let content = match command.data.name.as_str() {
+                "vahti" => crate::discord::commands::vahti::run(&ctx, &command).await,
+                "poistavahti" => crate::discord::commands::poistavahti::run(&ctx, &command).await,
+                "poistaesto" => crate::discord::commands::poistaesto::run(&ctx, &command).await,
+                _ => unreachable!(),
+            };
+
+            if !content.is_empty() {
+                command
+                    .edit_original_interaction_response(&ctx.http, |message| {
+                        message.content(&content)
+                    })
+                    .await
+                    .unwrap();
+            }
         }
         Interaction::MessageComponent(button) => {
             if button.data.custom_id == "remove_vahti" {
                 let userid = button.user.id.0;
-                let message = button.message.clone().regular().unwrap();
+                let message = button.message.clone();
                 let mut url = String::from("");
                 message.components[0]
                     .components
@@ -161,7 +67,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .unwrap()
             } else if button.data.custom_id == "block_seller" {
                 let userid = button.user.id.0;
-                let message = button.message.clone().regular().unwrap();
+                let message = button.message.clone();
                 let embed = &message.embeds[0];
                 let mut url = String::new();
                 message.components[0]
@@ -234,11 +140,15 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
             } else if button.data.custom_id == "remove_vahti_menu" {
                 let userid = button.user.id.0;
                 let url = button.data.values[0].to_string();
-                crate::vahti::remove_vahti(&ctx, &url, userid).await.unwrap();
+                crate::vahti::remove_vahti(&ctx, &url, userid)
+                    .await
+                    .unwrap();
                 button
                     .create_interaction_response(&ctx.http, |r| {
                         r.kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|m| m.content(format!("Poistettu vahti: `{}`", url)))
+                            .interaction_response_data(|m| {
+                                m.content(format!("Poistettu vahti: `{}`", url))
+                            })
                     })
                     .await
                     .unwrap()

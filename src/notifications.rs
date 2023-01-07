@@ -1,6 +1,6 @@
 use chrono::{Local, TimeZone};
 use serenity::http::Http;
-use serenity::model::interactions::message_component::ButtonStyle;
+use serenity::model::application::component::ButtonStyle;
 use serenity::utils::Color;
 
 use crate::models::Vahti;
