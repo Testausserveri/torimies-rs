@@ -8,6 +8,7 @@ use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sqlite::SqliteConnection;
 use serenity::prelude::TypeMapKey;
 
+use crate::error::Error;
 use crate::models::*;
 
 #[derive(Clone)]
@@ -50,7 +51,7 @@ impl Database {
 
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-        let manager = ConnectionManager::<SqliteConnection>::new(&database_url);
+        let manager = ConnectionManager::<SqliteConnection>::new(database_url);
         let database = Pool::builder()
             .max_size(16)
             .connection_customizer(Box::new(ConnectionOptions {
@@ -68,7 +69,8 @@ impl Database {
         &self,
         arg_url: &str,
         userid: i64,
-    ) -> Result<usize, anyhow::Error> {
+        site_id: i32,
+    ) -> Result<usize, Error> {
         let time = chrono::Local::now().timestamp();
         info!("Adding Vahti `{}` for the user {}", arg_url, userid);
         use crate::schema::Vahdit;
@@ -76,69 +78,82 @@ impl Database {
             last_updated: time,
             url: arg_url.to_string(),
             user_id: userid,
-            site_id: crate::vahti::SiteId::from(arg_url) as i32,
+            site_id,
         };
         Ok(diesel::insert_into(Vahdit::table)
             .values(&new_vahti)
-            .execute(&self.database.get()?)?)
+            .execute(
+                &self
+                    .database
+                    .get()
+                    .map_err(|e| Error::Database(e.to_string()))?,
+            )?)
     }
 
-    pub async fn remove_vahti_entry(
-        &self,
-        arg_url: &str,
-        userid: i64,
-    ) -> Result<usize, anyhow::Error> {
+    pub async fn remove_vahti_entry(&self, arg_url: &str, userid: i64) -> Result<usize, Error> {
         info!("Removing Vahti `{}` from the user {}", arg_url, userid);
         use crate::schema::Vahdit::dsl::*;
         Ok(
-            diesel::delete(Vahdit.filter(url.eq(arg_url).and(user_id.eq(userid))))
-                .execute(&self.database.get()?)?,
+            diesel::delete(Vahdit.filter(url.eq(arg_url).and(user_id.eq(userid)))).execute(
+                &self
+                    .database
+                    .get()
+                    .map_err(|e| Error::Database(e.to_string()))?,
+            )?,
         )
     }
 
-    pub async fn fetch_vahti_entries_by_url(
-        &self,
-        arg_url: &str,
-    ) -> Result<Vec<Vahti>, anyhow::Error> {
+    pub async fn fetch_vahti_entries_by_url(&self, arg_url: &str) -> Result<Vec<DbVahti>, Error> {
         info!("Fetching Vahtis {}...", arg_url);
         use crate::schema::Vahdit::dsl::*;
-        Ok(Vahdit
-            .filter(url.eq(arg_url))
-            .load::<Vahti>(&self.database.get()?)?)
+        Ok(Vahdit.filter(url.eq(arg_url)).load::<DbVahti>(
+            &self
+                .database
+                .get()
+                .map_err(|e| Error::Database(e.to_string()))?,
+        )?)
     }
 
-    pub async fn fetch_vahti_entries_by_user_id(
-        &self,
-        userid: i64,
-    ) -> Result<Vec<Vahti>, anyhow::Error> {
+    pub async fn fetch_vahti_entries_by_user_id(&self, userid: i64) -> Result<Vec<DbVahti>, Error> {
         info!("Fetching the Vahtis of user {}...", userid);
         use crate::schema::Vahdit::dsl::*;
-        Ok(Vahdit
-            .filter(user_id.eq(userid))
-            .load::<Vahti>(&self.database.get()?)?)
+        Ok(Vahdit.filter(user_id.eq(userid)).load::<DbVahti>(
+            &self
+                .database
+                .get()
+                .map_err(|e| Error::Database(e.to_string()))?,
+        )?)
     }
 
-    pub async fn fetch_vahti(&self, arg_url: &str, userid: i64) -> Result<Vahti, anyhow::Error> {
+    pub async fn fetch_vahti(&self, arg_url: &str, userid: i64) -> Result<DbVahti, Error> {
         info!("Fetching the user {}'s Vahti {}...", userid, arg_url);
         use crate::schema::Vahdit::dsl::*;
         Ok(Vahdit
             .filter(user_id.eq(userid).and(url.eq(arg_url)))
-            .first::<Vahti>(&self.database.get()?)?)
+            .first::<DbVahti>(
+                &self
+                    .database
+                    .get()
+                    .map_err(|e| Error::Database(e.to_string()))?,
+            )?)
     }
 
-    pub async fn fetch_all_vahtis(&self) -> Result<Vec<Vahti>, anyhow::Error> {
+    pub async fn fetch_all_vahtis(&self) -> Result<Vec<DbVahti>, Error> {
         info!("Fetching all Vahtis...");
         use crate::schema::Vahdit::dsl::*;
-        Ok(Vahdit.load::<Vahti>(&self.database.get()?)?)
+        Ok(Vahdit.load::<DbVahti>(
+            &self
+                .database
+                .get()
+                .map_err(|e| Error::Database(e.to_string()))?,
+        )?)
     }
 
-    pub async fn fetch_all_vahtis_group(
-        &self,
-    ) -> Result<BTreeMap<String, Vec<Vahti>>, anyhow::Error> {
+    pub async fn fetch_all_vahtis_group(&self) -> Result<BTreeMap<String, Vec<DbVahti>>, Error> {
         // FIXME: This could be done in sql
         info!("Fetching all vahtis grouping them by url");
         let vahdit = self.fetch_all_vahtis().await?;
-        let ret: BTreeMap<String, Vec<Vahti>> =
+        let ret: BTreeMap<String, Vec<DbVahti>> =
             vahdit.into_iter().fold(BTreeMap::new(), |mut acc, v| {
                 acc.entry(v.url.clone()).or_default().push(v);
                 acc
@@ -148,9 +163,9 @@ impl Database {
 
     pub async fn vahti_updated(
         &self,
-        vahti: Vahti,
+        vahti: DbVahti,
         timestamp: Option<i64>,
-    ) -> Result<usize, anyhow::Error> {
+    ) -> Result<usize, Error> {
         info!("Vahti {} for the user {}", vahti.url, vahti.user_id);
         use crate::schema::Vahdit::dsl::*;
         let time = timestamp.unwrap_or_else(|| chrono::Local::now().timestamp());
@@ -161,20 +176,27 @@ impl Database {
         Ok(
             diesel::update(Vahdit.filter(url.eq(vahti.url).and(user_id.eq(vahti.user_id))))
                 .set(last_updated.eq(time))
-                .execute(&self.database.get()?)?,
+                .execute(
+                    &self
+                        .database
+                        .get()
+                        .map_err(|e| Error::Database(e.to_string()))?,
+                )?,
         )
     }
 
-    pub async fn fetch_user_blacklist(
-        &self,
-        userid: i64,
-    ) -> Result<Vec<(i32, i32)>, anyhow::Error> {
+    pub async fn fetch_user_blacklist(&self, userid: i64) -> Result<Vec<(i32, i32)>, Error> {
         debug!("Fetching the blacklist for user {}...", userid);
         use crate::schema::Blacklists::dsl::*;
         Ok(Blacklists
-           .filter(user_id.eq(userid))
-           .select((seller_id, site_id))
-           .load::<(i32, i32)>(&self.database.get()?)?)
+            .filter(user_id.eq(userid))
+            .select((seller_id, site_id))
+            .load::<(i32, i32)>(
+                &self
+                    .database
+                    .get()
+                    .map_err(|e| Error::Database(e.to_string()))?,
+            )?)
     }
 
     pub async fn add_seller_to_blacklist(
@@ -182,7 +204,7 @@ impl Database {
         userid: i64,
         sellerid: i32,
         siteid: i32,
-    ) -> Result<usize, anyhow::Error> {
+    ) -> Result<usize, Error> {
         info!(
             "Adding seller {} to the blacklist of user {}",
             sellerid, userid
@@ -195,7 +217,12 @@ impl Database {
         };
         Ok(diesel::insert_into(Blacklists::table)
             .values(new_entry)
-            .execute(&self.database.get()?)?)
+            .execute(
+                &self
+                    .database
+                    .get()
+                    .map_err(|e| Error::Database(e.to_string()))?,
+            )?)
     }
 
     pub async fn remove_seller_from_blacklist(
@@ -203,7 +230,7 @@ impl Database {
         userid: i64,
         sellerid: i32,
         siteid: i32,
-    ) -> Result<usize, anyhow::Error> {
+    ) -> Result<usize, Error> {
         info!(
             "Removing seller {} from the blacklist of user {}",
             sellerid, userid
@@ -217,6 +244,11 @@ impl Database {
                     .and(site_id.eq(siteid)),
             ),
         )
-        .execute(&self.database.get()?)?)
+        .execute(
+            &self
+                .database
+                .get()
+                .map_err(|e| Error::Database(e.to_string()))?,
+        )?)
     }
 }

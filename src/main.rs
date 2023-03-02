@@ -1,79 +1,98 @@
-mod blacklist;
-pub mod database;
-mod discord;
-pub mod extensions;
-mod huutonet;
-mod interaction;
+#![feature(once_cell, async_closure, iter_array_chunks)]
+#![allow(dead_code)]
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(feature = "tori")]
 mod itemhistory;
-pub mod models;
-mod notifications;
-mod owner;
-pub mod schema;
+#[cfg(feature = "tori")]
 mod tori;
+
+#[cfg(feature = "huutonet")]
+mod huutonet;
+
+mod error;
+pub mod models;
+pub mod schema;
+
+pub mod command;
+pub mod database;
+pub mod delivery;
 mod vahti;
 
 #[macro_use]
 extern crate tracing;
 #[macro_use]
-extern crate anyhow;
-#[macro_use]
 extern crate diesel;
 
-use std::collections::HashSet;
-use std::env;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex, RwLock};
 
-use clokwerk::{Scheduler, TimeUnits};
-use serenity::async_trait;
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::framework::standard::macros::group;
-use serenity::framework::standard::*;
-use serenity::http::Http;
-use serenity::model::application::command::Command;
-use serenity::model::application::interaction::Interaction;
-use serenity::model::event::ResumedEvent;
-use serenity::model::gateway::Ready;
-use serenity::prelude::*;
-use tracing::{error, info};
+use command::Command;
+use dashmap::DashMap;
+use database::Database;
+use delivery::Delivery;
+use error::Error;
+use futures::future::join_all;
+use futures::Future;
 
-use crate::database::Database;
-use crate::extensions::ClientContextExt;
-use crate::interaction::handle_interaction;
-use crate::itemhistory::ItemHistory;
-use crate::owner::*;
+static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
+    std::env::var("UPDATE_INTERVAL")
+        .unwrap_or(String::from("120"))
+        .parse()
+        .expect("Invalid UPDATED_INTERVAL")
+});
 
-pub struct ShardManagerContainer;
-
-impl TypeMapKey for ShardManagerContainer {
-    type Value = Arc<Mutex<ShardManager>>;
+#[derive(Clone)]
+struct Torimies {
+    pub delivery: Arc<DashMap<i32, Box<dyn Delivery + Send + Sync>>>,
+    pub command: Arc<Mutex<Vec<Box<dyn Command + Send + Sync>>>>,
+    pub database: Database,
+    #[cfg(feature = "tori")]
+    pub itemhistorystorage: crate::itemhistory::ItemHistoryStorage,
 }
 
-struct Handler;
-
-#[async_trait]
-impl EventHandler for Handler {
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        handle_interaction(ctx, interaction).await;
-    }
-
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("Connected as {}", ready.user.name);
-
-        let _ = Command::create_global_application_command(&ctx.http, |command| {
-            discord::commands::vahti::register(command);
-            discord::commands::poistavahti::register(command);
-            discord::commands::poistaesto::register(command)
-        })
-        .await;
-    }
-    async fn resume(&self, _: Context, _: ResumedEvent) {
-        info!("Resumed");
+async fn update_loop(man: &mut Torimies) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(*UPDATE_INTERVAL));
+    loop {
+        // Update loop
+        interval.tick().await;
+        if let Err(e) = man.update_all_vahtis().await {
+            error!("Error while updating: {}", e);
+        }
     }
 }
 
-#[group]
-#[commands(update_all_vahtis)]
-struct General;
+async fn command_loop(man: &mut Torimies) {
+    // FIXME: This Mutex stays locked :(
+    let mut cmd = man.command.lock().unwrap();
+
+    let fs: Vec<std::pin::Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>> =
+        cmd.iter_mut().map(|c| c.start()).collect();
+
+    join_all(fs).await;
+}
+
+impl Torimies {
+    pub fn new(db: Database) -> Self {
+        Self {
+            delivery: Arc::new(DashMap::new()),
+            command: Arc::new(Mutex::new(Vec::new())),
+            database: db,
+            #[cfg(feature = "tori")]
+            itemhistorystorage: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    fn register_deliverer<T: Delivery + Send + Sync + 'static>(&mut self, id: i32, deliverer: T) {
+        self.delivery.insert(id, Box::new(deliverer));
+    }
+
+    fn register_commander<T: Command + Send + Sync + 'static>(&mut self, commander: T) {
+        self.command.lock().unwrap().push(Box::new(commander));
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -82,80 +101,31 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let database = Database::new().await;
-    let itemhistory = ItemHistory::new();
 
-    let token = env::var("DISCORD_TOKEN").expect("Expected token in the environment");
+    let mut the_man = Torimies::new(database);
 
-    let application_id: u64 = env::var("APPLICATION_ID")
-        .expect("Expected application-id in the environment")
-        .parse()
-        .expect("Application id is invalid");
-
-    let update_interval: u32 = env::var("UPDATE_INTERVAL")
-        .unwrap_or_else(|_| "60".to_string()) // Default to 1 minute
-        .parse()
-        .expect("Update interval is invalid");
-
-    let http = Http::new(&token);
-
-    let (owner, _bot_id) = match http.get_current_application_info().await {
-        Ok(info) => {
-            let mut owners = HashSet::new();
-            owners.insert(info.owner.id);
-            (owners, info.id)
-        }
-        Err(why) => panic!("Could not access application info: {:?}", why),
-    };
-
-    let framework = StandardFramework::new()
-        .configure(|c| c.owners(owner).prefix("!"))
-        .group(&GENERAL_GROUP);
-
-    let mut client = Client::builder(&token, GatewayIntents::non_privileged())
-        .application_id(application_id)
-        .framework(framework)
-        .event_handler(Handler)
-        .await
-        .expect("Error while creating client");
-
+    #[cfg(feature = "discord-delivery")]
     {
-        let mut data = client.data.write().await;
-        data.insert::<Database>(database);
-        data.insert::<ShardManagerContainer>(client.shard_manager.clone());
-        data.insert::<ItemHistory>(Arc::new(Mutex::new(itemhistory)));
-    }
-
-    let shard_manager = client.shard_manager.clone();
-
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    let mut scheduler = Scheduler::with_tz(chrono::Local);
-
-    let http = client.cache_and_http.http.clone();
-
-    let database = client.get_db().await.unwrap();
-    let itemhistory = client.get_itemhistory().await.unwrap();
-
-    scheduler.every(update_interval.second()).run(move || {
-        if let Err(e) = runtime.block_on(vahti::update_all_vahtis(
-            database.clone(),
-            itemhistory.clone(),
-            http.clone(),
-        )) {
-            error!("Failed to update vahtis: {}", e);
-        }
-    });
-
-    let thread_handle = scheduler.watch_thread(std::time::Duration::from_millis(1000));
-
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c()
+        let dc = crate::delivery::discord::Discord::init()
             .await
-            .expect("Could not register ctrl-c handler");
-        thread_handle.stop();
-        shard_manager.lock().await.shutdown_all().await;
-    });
+            .expect("Discord delivery initialization failed");
 
-    if let Err(why) = client.start().await {
-        error!("Client error: {:?}", why);
+        the_man.register_deliverer(crate::delivery::discord::ID, dc);
     }
+
+    #[cfg(feature = "discord-command")]
+    {
+        let dc = crate::command::discord::Discord::init(&the_man.database.clone())
+            .await
+            .expect("Discord commmand initialization failed");
+
+        the_man.register_commander(dc);
+    }
+
+    let mut the_man2 = the_man.clone();
+
+    let update = update_loop(&mut the_man);
+    let command = command_loop(&mut the_man2);
+
+    futures::join!(update, command);
 }

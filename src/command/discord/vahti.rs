@@ -3,7 +3,8 @@ use serenity::client::Context;
 use serenity::model::application::command::CommandOptionType;
 use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
 
-use crate::vahti::{is_valid_url, new_vahti};
+use super::extensions::ClientContextExt;
+use crate::vahti::new_vahti;
 
 pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     command
@@ -27,9 +28,11 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
         }
     }
 
-    if !is_valid_url(&url).await {
-        return String::from("Annettu hakuosoite on virheellinen tai kyseiselle haulle ei ole tällä hetkellä tuloksia! Vahtia ei luoda.");
-    }
+    info!("New vahti {}", &url);
 
-    new_vahti(&ctx, &url, command.user.id.0).await.unwrap()
+    let db = ctx.get_db().await.unwrap();
+
+    new_vahti(db, &url, command.user.id.0)
+        .await
+        .unwrap_or_else(|e| e.to_string())
 }

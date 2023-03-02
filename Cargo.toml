@@ -4,11 +4,20 @@ version = "0.1.5"
 edition = "2021"
 authors = ["Luukas Pörtfors <lajp@iki.fi>"]
 
+[features]
+default = ["discord", "tori", "huutonet"]
+discord = ["discord-delivery", "discord-command"]
+discord-delivery = []
+discord-command = []
+tori = []
+huutonet = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies.serenity]
 version = "0.11"
 default-features = false
-features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework"]
+#features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework"]
+features = ["client", "gateway", "rustls_backend", "model"]
 
 [dependencies.tokio]
 version = "1.13"
@@ -29,7 +38,6 @@ features = ["bundled"]
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-anyhow = "1.0"
 
 reqwest = "0.11"
 regex = "1.5"
@@ -40,3 +48,7 @@ clokwerk = "0.3"
 serde_json = "1.0"
 serde = "1.0"
 lazy_static = "1.4"
+async-trait = "0.1"
+thiserror = "1"
+dashmap = "5.4.0"
+itertools = "0.10.5"
