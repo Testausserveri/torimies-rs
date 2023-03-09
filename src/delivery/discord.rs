@@ -14,6 +14,7 @@ use crate::error::Error;
 use crate::vahti::VahtiItem;
 
 pub const ID: i32 = 1;
+pub const NAME: &str = "discord";
 
 pub struct Discord {
     pub http: Arc<Http>,

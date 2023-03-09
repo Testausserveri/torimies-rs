@@ -47,7 +47,7 @@ static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
 #[derive(Clone)]
 struct Torimies {
     pub delivery: Arc<DashMap<i32, Box<dyn Delivery + Send + Sync>>>,
-    pub command: Arc<Mutex<Vec<Box<dyn Command + Send + Sync>>>>,
+    pub command: Arc<DashMap<String, Box<dyn Command + Send + Sync>>>,
     pub database: Database,
     #[cfg(feature = "tori")]
     pub itemhistorystorage: crate::itemhistory::ItemHistoryStorage,
@@ -65,20 +65,19 @@ async fn update_loop(man: &mut Torimies) {
 }
 
 async fn command_loop(man: &mut Torimies) {
-    // FIXME: This Mutex stays locked :(
-    let mut cmd = man.command.lock().unwrap();
-
-    let fs: Vec<std::pin::Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>> =
-        cmd.iter_mut().map(|c| c.start()).collect();
-
-    join_all(fs).await;
+    join_all(
+        man.command
+            .iter_mut()
+            .map(async move |mut c| c.start().await.ok()),
+    )
+    .await;
 }
 
 impl Torimies {
     pub fn new(db: Database) -> Self {
         Self {
             delivery: Arc::new(DashMap::new()),
-            command: Arc::new(Mutex::new(Vec::new())),
+            command: Arc::new(DashMap::new()),
             database: db,
             #[cfg(feature = "tori")]
             itemhistorystorage: Arc::new(RwLock::new(HashMap::new())),
@@ -89,8 +88,12 @@ impl Torimies {
         self.delivery.insert(id, Box::new(deliverer));
     }
 
-    fn register_commander<T: Command + Send + Sync + 'static>(&mut self, commander: T) {
-        self.command.lock().unwrap().push(Box::new(commander));
+    fn register_commander<T: Command + Send + Sync + 'static>(
+        &mut self,
+        name: impl ToString,
+        commander: T,
+    ) {
+        self.command.insert(name.to_string(), Box::new(commander));
     }
 }
 
@@ -119,7 +122,7 @@ async fn main() {
             .await
             .expect("Discord commmand initialization failed");
 
-        the_man.register_commander(dc);
+        the_man.register_commander(crate::delivery::discord::NAME, dc);
     }
 
     let mut the_man2 = the_man.clone();
