@@ -27,15 +27,13 @@ extern crate tracing;
 extern crate diesel;
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 
 use command::Command;
 use dashmap::DashMap;
 use database::Database;
 use delivery::Delivery;
-use error::Error;
 use futures::future::join_all;
-use futures::Future;
 
 static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
     std::env::var("UPDATE_INTERVAL")
@@ -122,7 +120,7 @@ async fn main() {
             .await
             .expect("Discord commmand initialization failed");
 
-        the_man.register_commander(crate::delivery::discord::NAME, dc);
+        the_man.register_commander(crate::command::discord::NAME, dc);
     }
 
     let mut the_man2 = the_man.clone();

@@ -15,6 +15,8 @@ use crate::command::Command;
 use crate::database::Database;
 use crate::error::Error;
 
+pub const NAME: &str = "discord";
+
 struct Handler;
 
 #[async_trait]
