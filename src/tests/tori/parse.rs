@@ -6,7 +6,7 @@ use crate::vahti::VahtiItem;
 
 #[test]
 fn basic_parse() {
-    let mut file = File::open("testdata/basic_parse.json").expect("Test data not found");
+    let mut file = File::open("testdata/tori/basic_parse.json").expect("Test data not found");
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
@@ -36,7 +36,7 @@ fn basic_parse() {
 
 #[test]
 fn parse_after() {
-    let mut file = File::open("testdata/parse_after.json").expect("Test data not found");
+    let mut file = File::open("testdata/tori/parse_after.json").expect("Test data not found");
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
@@ -46,7 +46,7 @@ fn parse_after() {
 
 #[test]
 fn parse_multiple() {
-    let mut file = File::open("testdata/parse_multiple.json").expect("Test data not found");
+    let mut file = File::open("testdata/tori/parse_multiple.json").expect("Test data not found");
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
