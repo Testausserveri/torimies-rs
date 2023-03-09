@@ -16,7 +16,6 @@ huutonet = []
 [dependencies.serenity]
 version = "0.11"
 default-features = false
-#features = ["client", "gateway", "rustls_backend", "model", "framework", "standard_framework"]
 features = ["client", "gateway", "rustls_backend", "model"]
 
 [dependencies.tokio]
