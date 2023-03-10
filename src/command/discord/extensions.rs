@@ -14,7 +14,7 @@ impl ClientContextExt for client::Context {
         let data = self.data.read().await;
         let db = data
             .get::<Database>()
-            .ok_or(Error::Discord(String::from("No database in client data")))?;
+            .expect("No Database in client storage");
         Ok(db.to_owned())
     }
 }
@@ -25,7 +25,7 @@ impl ClientContextExt for client::Client {
         let data = self.data.read().await;
         let db = data
             .get::<Database>()
-            .ok_or(Error::Discord(String::from("No database in client data")))?;
+            .expect("No Database in client storage");
         Ok(db.to_owned())
     }
 }

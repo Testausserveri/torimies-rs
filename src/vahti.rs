@@ -57,17 +57,12 @@ pub struct VahtiItem {
 }
 
 pub async fn new_vahti(db: Database, url: &str, userid: u64) -> Result<String, Error> {
-    let mut site_id = 0;
-    for (r, sid) in SITES.iter() {
-        if r.is_match(url) {
-            site_id = *sid;
-            break;
-        }
-    }
-
-    if site_id == 0 {
+    let Some(site_id) = SITES
+        .iter()
+        .find(|(r, _)| r.is_match(url))
+        .map(|(_, sid)| *sid) else {
         return Err(Error::UnknownUrl(url.to_string()));
-    }
+    };
 
     if db.fetch_vahti(url, userid as i64).await.is_ok() {
         info!("Not adding a pre-defined Vahti {} for user {}", url, userid);
@@ -111,10 +106,10 @@ impl Torimies {
 
         // FIXME: Not a very good solution
         for vahti in &vahtis {
-            if vahti.site_id == crate::tori::ID && ihs.read().unwrap().get(&vahti.id).is_none() {
+            if vahti.site_id == crate::tori::ID && ihs.get(&vahti.id).is_none() {
                 let ih = Arc::new(Mutex::new(ItemHistory::new()));
 
-                ihs.write().unwrap().insert(vahti.id, ih);
+                ihs.insert(vahti.id, ih);
             }
         }
 
@@ -125,13 +120,13 @@ impl Torimies {
                 crate::tori::ID => {
                     let vid = v.id;
                     let Ok(mut tv) = ToriVahti::from_db(v) else {
-                            return Vec::new();
+                            return vec![];
                         };
-                    tv.itemhistory = ihs.read().unwrap().get(&vid).cloned();
+                    tv.itemhistory = ihs.get(&vid).map(|ih| ih.clone());
                     if let Ok(is) = tv.update(&db).await {
                         is
                     } else {
-                        Vec::new()
+                        vec![]
                     }
                 }
                 #[cfg(feature = "huutonet")]
@@ -140,10 +135,10 @@ impl Torimies {
                         if let Ok(is) = hv.update(&db).await {
                             is
                         } else {
-                            Vec::new()
+                            vec![]
                         }
                     } else {
-                        Vec::new()
+                        vec![]
                     }
                 }
                 i => panic!("Unsupported site_id {}", i),

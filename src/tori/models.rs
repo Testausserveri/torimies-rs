@@ -132,7 +132,7 @@ impl From<FullToriItem> for VahtiItem {
             None => String::new(),
         };
 
-        let mut location_vec: Vec<String> = Vec::new();
+        let mut location_vec: Vec<String> = vec![];
         let mut loc = &t.locations[0];
         loop {
             location_vec.push(loc.label.clone());

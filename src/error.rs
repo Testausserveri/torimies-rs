@@ -1,50 +1,23 @@
-use diesel::r2d2;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Tori has done some stupiding")]
     Tori,
-    Discord(String),
-    Database(String),
+    #[error("Discord error {0}")]
+    Discord(#[from] serenity::Error),
+    #[error("Database error {0}")]
+    Database(#[from] diesel::result::Error),
+    #[error("Database Pool error {0}")]
+    DbPool(#[from] r2d2::Error),
+    #[error("Unknown url passed: {0}")]
     UnknownUrl(String),
-    Serde(String),
-    Reqwest(String),
+    #[error("Json Error {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("Reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+    #[error("The specified Vahti already exists")]
     VahtiExists,
+    #[error("Invalid Item passed")]
     InvalidItem,
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl From<serenity::Error> for Error {
-    fn from(value: serenity::Error) -> Self {
-        Self::Discord(value.to_string())
-    }
-}
-
-impl From<r2d2::Error> for Error {
-    fn from(value: r2d2::Error) -> Self {
-        Self::Database(value.to_string())
-    }
-}
-
-impl From<diesel::result::Error> for Error {
-    fn from(value: diesel::result::Error) -> Self {
-        Self::Database(value.to_string())
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value.to_string())
-    }
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(value: reqwest::Error) -> Self {
-        Self::Reqwest(value.to_string())
-    }
 }

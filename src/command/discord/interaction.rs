@@ -98,9 +98,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .filter_map(|e| e.footer.as_ref().map(|f| f.text.clone()))
                     .collect();
 
-                if urls.is_empty() {
-                    panic!("Cannot determine search url");
-                }
+                assert!(!urls.is_empty(), "Cannot determine search url");
 
                 // FIXME: We can get the names from the fields also
                 let sellers = message

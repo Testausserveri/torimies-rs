@@ -35,8 +35,7 @@ impl Vahti for HuutonetVahti {
             .to_string();
 
         let ret = api_parse_after(&res, self.last_updated)?
-            .iter()
-            .cloned()
+            .into_iter()
             .map(|mut i| {
                 i.vahti_url = Some(self.url.clone());
                 i.deliver_to = Some(self.user_id);
@@ -46,7 +45,7 @@ impl Vahti for HuutonetVahti {
             .collect::<Vec<_>>();
 
         if ret.is_empty() {
-            return Ok(Vec::new());
+            return Ok(vec![]);
         }
 
         db.vahti_updated(
@@ -81,7 +80,7 @@ impl Vahti for HuutonetVahti {
     }
 
     fn from_db(v: DbVahti) -> Result<Self, Error> {
-        assert!(v.site_id == super::ID);
+        assert_eq!(v.site_id, super::ID);
 
         Ok(Self {
             id: v.id,

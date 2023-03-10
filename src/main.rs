@@ -26,8 +26,7 @@ extern crate tracing;
 #[macro_use]
 extern crate diesel;
 
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::{Arc, LazyLock};
 
 use command::Command;
 use dashmap::DashMap;
@@ -78,7 +77,7 @@ impl Torimies {
             command: Arc::new(DashMap::new()),
             database: db,
             #[cfg(feature = "tori")]
-            itemhistorystorage: Arc::new(RwLock::new(HashMap::new())),
+            itemhistorystorage: Arc::new(DashMap::new()),
         }
     }
 

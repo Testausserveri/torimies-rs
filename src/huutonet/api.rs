@@ -10,10 +10,10 @@ pub fn vahti_to_api(vahti: &str) -> String {
         let mut args: Vec<&str> = vahti.split('/').collect();
         let args: Vec<&str> = args.drain(4..).collect();
 
-        let mut url_end = String::new();
-        for arg in args.chunks_exact(2) {
-            url_end += &format!("&{}={}", arg[0], arg[1]);
-        }
+        let url_end: String = args
+            .chunks_exact(2)
+            .map(|arg| format!("&{}={}", arg[0], arg[1]))
+            .collect();
 
         if !url_end.is_empty() {
             url += &url_end[1..];

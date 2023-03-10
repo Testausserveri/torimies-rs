@@ -3,7 +3,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{Local, TimeZone};
 use futures::stream::{self, StreamExt};
-use itertools::Itertools;
 use serenity::builder::CreateEmbed;
 use serenity::http::Http;
 use serenity::model::prelude::component::ButtonStyle;
@@ -32,9 +31,7 @@ impl Discord {
         Ok(Self { http })
     }
 
-    pub async fn destroy(self) {
-        drop(self)
-    }
+    pub async fn destroy(self) {}
 }
 
 impl VahtiItem {
@@ -123,12 +120,7 @@ impl Delivery for Discord {
 
         // NOTE: Let's try 5 embeds per message, discord has a limit afaik, but idk
         // if the text/character limit will become an issue before the embed limit does
-        let chunks: Vec<Vec<VahtiItem>> = items
-            .iter()
-            .chunks(5)
-            .into_iter()
-            .map(|c| c.into_iter().cloned().collect())
-            .collect();
+        let chunks: Vec<Vec<VahtiItem>> = items.chunks(5).map(|c| c.to_vec()).collect();
 
         let http = self.http.clone();
         let recipient = http

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
+use dashmap::DashMap;
 use serenity::prelude::TypeMapKey;
 
 #[derive(Debug, Clone)]
@@ -10,7 +10,7 @@ pub struct ItemHistory {
 }
 
 // vahti_id => ItemHistory
-pub type ItemHistoryStorage = Arc<RwLock<HashMap<i32, Arc<Mutex<ItemHistory>>>>>;
+pub type ItemHistoryStorage = Arc<DashMap<i32, Arc<Mutex<ItemHistory>>>>;
 
 impl TypeMapKey for ItemHistory {
     type Value = Arc<Mutex<ItemHistory>>;
@@ -18,8 +18,7 @@ impl TypeMapKey for ItemHistory {
 
 impl ItemHistory {
     pub fn new() -> ItemHistory {
-        let items = Vec::new();
-        Self { items }
+        Self { items: vec![] }
     }
 
     pub fn add_item(&mut self, id: i64, site_id: i32, timestamp: i64) {

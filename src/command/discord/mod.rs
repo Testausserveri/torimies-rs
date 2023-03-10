@@ -59,10 +59,9 @@ impl Discord {
             .event_handler(Handler)
             .await?;
 
-        {
-            let mut data = client.data.write().await;
-            data.insert::<Database>(db.to_owned());
-        }
+        let mut data = client.data.write().await;
+        data.insert::<Database>(db.to_owned());
+        drop(data);
 
         Ok(Self { client })
     }

@@ -6,7 +6,7 @@ use crate::vahti::VahtiItem;
 
 pub fn api_parse_after(json: &str, after: i64) -> Result<Vec<VahtiItem>, Error> {
     let response_json: Value = serde_json::from_str(json)?;
-    let mut items = Vec::new();
+    let mut items = vec![];
     let mut past_weirdness = false;
 
     if let Some(ads) = response_json["list_ads"].as_array() {

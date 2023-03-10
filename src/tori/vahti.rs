@@ -72,7 +72,7 @@ impl Vahti for ToriVahti {
         *self.itemhistory.as_ref().unwrap().lock().unwrap() = ih;
 
         if ret.is_empty() {
-            return Ok(Vec::new());
+            return Ok(vec![]);
         }
 
         db.vahti_updated(
@@ -107,7 +107,7 @@ impl Vahti for ToriVahti {
     }
 
     fn from_db(v: DbVahti) -> Result<Self, Error> {
-        assert!(v.site_id == super::ID);
+        assert_eq!(v.site_id, super::ID);
 
         Ok(Self {
             id: v.id,
