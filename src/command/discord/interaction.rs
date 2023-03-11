@@ -31,6 +31,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
         Interaction::ApplicationCommand(command) => {
             command
                 .create_interaction_response(&ctx.http, |response| {
+                    response.interaction_response_data(|d| d.ephemeral(true));
                     response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
                 })
                 .await
@@ -55,6 +56,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
         Interaction::MessageComponent(button) => {
             button
                 .create_interaction_response(&ctx.http, |response| {
+                    response.interaction_response_data(|d| d.ephemeral(true));
                     response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
                 })
                 .await
