@@ -157,7 +157,7 @@ impl Torimies {
                 )
             })
             .into_iter()
-            .map(|(_, g)| g.cloned().collect())
+            .map(|(_, g)| g.cloned().unique_by(|v| v.ad_id).collect())
             .collect();
 
         stream::iter(
