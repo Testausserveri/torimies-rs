@@ -7,12 +7,12 @@ import           Database.SQLite.Simple
 import Control.Monad
 import Data.List
 
-vahtiQuery :: String -> [String]
-vahtiQuery q = ["https://www.tori.fi/koko_suomi?q=" ++ q, "https://www.huuto.net/haku?words=" ++ q]
+vahtiQuery :: String -> [(Int, String)]
+vahtiQuery q = [(1, "https://www.tori.fi/koko_suomi?q=" ++ q), (2, "https://www.huuto.net/haku?words=" ++ q)]
 
 wordList = ["thinkpad", "lenovo", "xeon", "server", "hp", "elitebook", "i3", "i5", "i7"]
 
-generate :: [[String]]
+generate :: [[(Int, String)]]
 generate = do
     ws <- filter (not . null) $ filterM (const [True, False]) wordList
     return . vahtiQuery $ intercalate "+" ws
@@ -24,4 +24,4 @@ main = do
 
     putStrLn $ "Inserting " ++ show (length vahtis) ++ " Vahtis.."
     conn <- open "test.sqlite"
-    mapM_ (execute conn "INSERT INTO Vahdit (url, user_id, last_updated, site_id, delivery_method) VALUES (?, 328625071327412267, 0, 1, 1)" . Only) vahtis
+    mapM_ (execute conn "INSERT INTO Vahdit (site_id, user_id, last_updated, url, delivery_method) VALUES (?, 328625071327412267, 0, ?, 1)") vahtis
