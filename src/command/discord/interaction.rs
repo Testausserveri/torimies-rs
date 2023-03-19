@@ -102,7 +102,6 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
 
                 assert!(!urls.is_empty(), "Cannot determine search url");
 
-                // FIXME: We can get the names from the fields also
                 let sellers = message
                     .embeds
                     .iter()
