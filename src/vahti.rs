@@ -121,22 +121,15 @@ impl Torimies {
                     let vid = v.id;
                     let Ok(mut tv) = ToriVahti::from_db(v) else {
                             return vec![];
-                        };
+                    };
+
                     tv.itemhistory = ihs.get(&vid).map(|ih| ih.clone());
-                    if let Ok(is) = tv.update(&db).await {
-                        is
-                    } else {
-                        vec![]
-                    }
+                    tv.update(&db).await.unwrap_or_default()
                 }
                 #[cfg(feature = "huutonet")]
                 crate::huutonet::ID => {
                     if let Ok(mut hv) = HuutonetVahti::from_db(v) {
-                        if let Ok(is) = hv.update(&db).await {
-                            is
-                        } else {
-                            vec![]
-                        }
+                        hv.update(&db).await.unwrap_or_default()
                     } else {
                         vec![]
                     }
