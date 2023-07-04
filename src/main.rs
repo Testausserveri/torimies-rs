@@ -1,4 +1,4 @@
-#![feature(once_cell, async_closure, iter_array_chunks)]
+#![feature(lazy_cell, async_closure, iter_array_chunks)]
 #![allow(dead_code)]
 
 #[cfg(test)]

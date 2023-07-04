@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
@@ -10,9 +9,6 @@ use crate::itemhistory::ItemHistory;
 use crate::models::DbVahti;
 use crate::tori::api::*;
 use crate::tori::parse::*;
-
-pub static ITEMHISTORIES: LazyLock<Mutex<HashMap<i32, ItemHistory>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub static TORI_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap());
