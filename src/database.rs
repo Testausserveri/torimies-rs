@@ -70,6 +70,7 @@ impl Database {
         arg_url: &str,
         userid: i64,
         site_id: i32,
+        delivery_method: i32,
     ) -> Result<usize, Error> {
         let time = chrono::Local::now().timestamp();
         info!("Adding Vahti `{}` for the user {}", arg_url, userid);
@@ -79,6 +80,7 @@ impl Database {
             url: arg_url.to_string(),
             user_id: userid,
             site_id,
+            delivery_method,
         };
         Ok(diesel::insert_into(Vahdit::table)
             .values(&new_vahti)

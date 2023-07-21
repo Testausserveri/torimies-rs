@@ -32,7 +32,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
 
     let db = ctx.get_db().await.unwrap();
 
-    new_vahti(db, &url, command.user.id.0)
+    new_vahti(db, &url, command.user.id.0, crate::delivery::discord::ID)
         .await
         .unwrap_or_else(|e| e.to_string())
 }

@@ -8,9 +8,12 @@ use regex::Regex;
 use crate::database::Database;
 use crate::delivery::perform_delivery;
 use crate::error::Error;
+#[cfg(feature = "huutonet")]
 use crate::huutonet::vahti::HuutonetVahti;
+#[cfg(feature = "tori")]
 use crate::itemhistory::ItemHistory;
 use crate::models::DbVahti;
+#[cfg(feature = "tori")]
 use crate::tori::vahti::ToriVahti;
 use crate::Torimies;
 
@@ -32,7 +35,6 @@ where
 {
     async fn update(&mut self, db: &Database) -> Result<Vec<VahtiItem>, Error>;
     async fn validate_url(&self) -> Result<bool, Error>;
-    async fn new_db(db: Database, url: &str, userid: u64) -> Result<(), Error>;
     fn is_valid_url(&self, url: &str) -> bool;
     fn from_db(v: DbVahti) -> Result<Self, Error>;
     fn to_db(&self) -> DbVahti;
@@ -56,11 +58,17 @@ pub struct VahtiItem {
     pub ad_id: i64,
 }
 
-pub async fn new_vahti(db: Database, url: &str, userid: u64) -> Result<String, Error> {
+pub async fn new_vahti(
+    db: Database,
+    url: &str,
+    userid: u64,
+    delivery_method: i32,
+) -> Result<String, Error> {
     let Some(site_id) = SITES
         .iter()
         .find(|(r, _)| r.is_match(url))
-        .map(|(_, sid)| *sid) else {
+        .map(|(_, sid)| *sid)
+    else {
         return Err(Error::UnknownUrl(url.to_string()));
     };
 
@@ -69,7 +77,10 @@ pub async fn new_vahti(db: Database, url: &str, userid: u64) -> Result<String, E
         return Err(Error::VahtiExists);
     }
 
-    match db.add_vahti_entry(url, userid as i64, site_id).await {
+    match db
+        .add_vahti_entry(url, userid as i64, site_id, delivery_method)
+        .await
+    {
         Ok(_) => Ok(String::from("Vahti added succesfully")),
         Err(e) => Err(e),
     }
@@ -99,12 +110,14 @@ impl Torimies {
         info!("Updating {} vahtis", vahtis.len());
         let start = std::time::Instant::now();
 
+        // FIXME: Make itemhistory global (not just for tori)
         let ihs = self.itemhistorystorage.clone();
 
         let db = self.database.clone();
         let dm = self.delivery.clone();
 
         // FIXME: Not a very good solution
+        #[cfg(feature = "tori")]
         for vahti in &vahtis {
             if vahti.site_id == crate::tori::ID && ihs.get(&vahti.id).is_none() {
                 let ih = Arc::new(Mutex::new(ItemHistory::new()));
@@ -120,7 +133,7 @@ impl Torimies {
                 crate::tori::ID => {
                     let vid = v.id;
                     let Ok(mut tv) = ToriVahti::from_db(v) else {
-                            return vec![];
+                        return vec![];
                     };
 
                     tv.itemhistory = ihs.get(&vid).map(|ih| ih.clone());

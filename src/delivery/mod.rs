@@ -1,6 +1,9 @@
 #[cfg(feature = "discord-delivery")]
 pub mod discord;
 
+#[cfg(feature = "telegram-delivery")]
+pub mod telegram;
+
 use std::sync::Arc;
 
 use async_trait::async_trait;

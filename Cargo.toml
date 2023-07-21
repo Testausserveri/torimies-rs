@@ -5,10 +5,13 @@ edition = "2021"
 authors = ["Luukas Pörtfors <lajp@iki.fi>"]
 
 [features]
-default = ["discord", "tori", "huutonet"]
+default = ["discord", "telegram", "tori", "huutonet"]
 discord = ["discord-delivery", "discord-command"]
+telegram = ["telegram-delivery", "telegram-command"]
 discord-delivery = []
 discord-command = []
+telegram-delivery = []
+telegram-command = []
 tori = []
 huutonet = []
 
@@ -34,6 +37,10 @@ features = ["vendored"]
 version = "0.22.2"
 features = ["bundled"]
 
+[dependencies.teloxide]
+version = "0.12.2"
+features = ["rustls", "throttle", "macros", "ctrlc_handler"]
+
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -52,3 +59,4 @@ thiserror = "1"
 dashmap = "5.4.0"
 itertools = "0.10.5"
 r2d2 = "0.8.10"
+url = "2.4.0"

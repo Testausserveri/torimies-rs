@@ -17,6 +17,7 @@ pub struct NewVahti {
     pub user_id: i64,
     pub last_updated: i64,
     pub site_id: i32,
+    pub delivery_method: i32,
 }
 
 #[derive(Queryable, Clone, Debug)]

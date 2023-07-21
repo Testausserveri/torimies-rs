@@ -61,7 +61,7 @@ async fn update_loop(man: &mut Torimies) {
     }
 }
 
-async fn command_loop(man: &mut Torimies) {
+async fn command_loop(man: &Torimies) {
     join_all(
         man.command
             .iter_mut()
@@ -120,6 +120,24 @@ async fn main() {
             .expect("Discord commmand initialization failed");
 
         the_man.register_commander(crate::command::discord::NAME, dc);
+    }
+
+    #[cfg(feature = "telegram-delivery")]
+    {
+        let tg = crate::delivery::telegram::Telegram::init()
+            .await
+            .expect("Telegram delivery initialization failed");
+
+        the_man.register_deliverer(crate::delivery::telegram::ID, tg)
+    }
+
+    #[cfg(feature = "telegram-command")]
+    {
+        let tg = crate::command::telegram::Telegram::init(&the_man.database.clone())
+            .await
+            .expect("Telegram commmand initialization failed");
+
+        the_man.register_commander(crate::command::telegram::NAME, tg);
     }
 
     let mut the_man2 = the_man.clone();

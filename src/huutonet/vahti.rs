@@ -65,20 +65,6 @@ impl Vahti for HuutonetVahti {
         Ok(is_valid_url(&self.url).await)
     }
 
-    async fn new_db(db: Database, url: &str, user_id: u64) -> Result<(), Error> {
-        if db.fetch_vahti(url, user_id as i64).await.is_ok() {
-            info!(
-                "Not adding a pre-defined HuutonetVahti {} for user {}",
-                url, user_id
-            );
-            return Err(Error::VahtiExists);
-        }
-        match db.add_vahti_entry(url, user_id as i64, super::ID).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
-    }
-
     fn from_db(v: DbVahti) -> Result<Self, Error> {
         assert_eq!(v.site_id, super::ID);
 

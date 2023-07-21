@@ -1,6 +1,9 @@
 #[cfg(feature = "discord-command")]
 pub mod discord;
 
+#[cfg(feature = "telegram-command")]
+pub mod telegram;
+
 use async_trait::async_trait;
 
 use crate::error::Error;
