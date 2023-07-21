@@ -1,11 +1,16 @@
+mod help;
+mod poistavahti;
+mod start;
+mod vahti;
+
 use async_trait::async_trait;
+use teloxide::adaptors::throttle::Limits;
 use teloxide::prelude::*;
 use teloxide::utils::command::BotCommands;
 
 use crate::command::Command;
 use crate::database::Database;
 use crate::error::Error;
-use crate::vahti::new_vahti;
 
 pub const NAME: &str = "telegram";
 
@@ -31,35 +36,37 @@ impl Telegram {
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase", description = "Supported commands")]
 enum TelegramCommand {
+    #[command(description = "Display start message")]
+    Start,
     #[command(description = "Display help message")]
     Help,
-    #[command(description = "Add a new Vahti")]
+    #[command(description = "Add new vahti with `/vahti [url]`")]
     Vahti(String),
+    #[command(description = "Remove a vahti with `/poistavahti [url]`")]
+    PoistaVahti(String),
 }
 
 async fn handle(bot: Bot, msg: Message, cmd: TelegramCommand, db: Database) -> ResponseResult<()> {
-    match cmd {
-        TelegramCommand::Help => println!("Help command"),
-        TelegramCommand::Vahti(v) => {
-            println!("Add vahti {} for user {}", msg.chat.id, &v);
-            bot.send_message(
-                ChatId((msg.chat.id.0 as u64) as i64),
-                new_vahti(db, &v, msg.chat.id.0 as u64, crate::delivery::telegram::ID)
-                    .await
-                    .unwrap(),
-            )
-            .await?;
-        }
+    let response = match cmd {
+        TelegramCommand::Vahti(v) => vahti::run(msg.clone(), v, db).await,
+        TelegramCommand::PoistaVahti(v) => poistavahti::run(msg.clone(), v, db).await,
+        TelegramCommand::Help => help::run().await,
+        TelegramCommand::Start => start::run().await,
     }
+    .unwrap_or(String::from(
+        "Ran into an unhandled error while processing the command",
+    ));
 
+    bot.throttle(Limits::default())
+        .send_message(msg.chat.id, response)
+        .disable_web_page_preview(true)
+        .await?;
     Ok(())
 }
 
 #[async_trait]
 impl Command for Telegram {
     async fn start(&mut self) -> Result<(), Error> {
-        // use dispatcher
-        //TelegramCommand::repl(self.bot.clone(), handle).await;
         let handler = Update::filter_message().branch(
             dptree::entry()
                 .filter_command::<TelegramCommand>()

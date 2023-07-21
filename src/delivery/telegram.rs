@@ -92,18 +92,21 @@ impl Delivery for Telegram {
 
         stream::iter(items.iter().cloned())
             .map(async move |i| {
-                info!("Sending {}", i.clone().format_telegram());
+                let file = if i.img_url.is_empty() {
+                    InputFile::file("./media/no_image.jpg")
+                } else {
+                    InputFile::url(url::Url::parse(&i.img_url).unwrap())
+                };
+
                 self.bot
                     .clone()
                     .throttle(Limits::default())
-                    .send_photo(
-                        recipient,
-                        InputFile::url(url::Url::parse(&i.img_url).unwrap()),
-                    )
+                    .send_photo(recipient, file)
                     .caption(i.clone().format_telegram())
                     .parse_mode(ParseMode::Html)
                     .await
-                    .unwrap()
+                    // FIXME: Perhaps don't ignore an error here
+                    .ok()
             })
             .buffer_unordered(50)
             .collect::<Vec<_>>()
