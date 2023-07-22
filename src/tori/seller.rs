@@ -1,6 +1,8 @@
 use serde_json::Value;
 
-pub async fn get_seller_name_from_id(sellerid: i32) -> Result<String, anyhow::Error> {
+use crate::error::Error;
+
+pub async fn get_seller_name_from_id(sellerid: i32) -> Result<String, Error> {
     let url = format!(
         "https://api.tori.fi/api/v1.2/public/ads?account={}&lim=1",
         sellerid

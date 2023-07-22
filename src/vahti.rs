@@ -1,22 +1,55 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::LazyLock;
 
+use async_trait::async_trait;
+use futures::stream::{self, StreamExt};
+use itertools::Itertools;
 use regex::Regex;
-use serenity::client::Context;
-use serenity::http::Http;
 
-use crate::extensions::ClientContextExt;
-use crate::models::Vahti;
-use crate::{Database, ItemHistory, Mutex};
+use crate::database::Database;
+use crate::delivery::perform_delivery;
+use crate::error::Error;
+#[cfg(feature = "huutonet")]
+use crate::huutonet::vahti::HuutonetVahti;
+use crate::itemhistory::ItemHistoryStorage;
+use crate::models::DbVahti;
+#[cfg(feature = "tori")]
+use crate::tori::vahti::ToriVahti;
+use crate::Torimies;
 
-lazy_static::lazy_static! {
-    static ref TORI_REGEX: Regex = Regex::new(r"^https://(m\.|www\.)?tori\.fi/.*\?.*$").unwrap();
-    static ref HUUTONET_REGEX: Regex = Regex::new(r"^https://(www\.)?huuto\.net/haku?.*$").unwrap();
+static SITES: LazyLock<Vec<(&LazyLock<Regex>, i32)>> = LazyLock::new(|| {
+    vec![
+        #[cfg(feature = "tori")]
+        (&crate::tori::vahti::TORI_REGEX, crate::tori::ID),
+        #[cfg(feature = "huutonet")]
+        (&crate::huutonet::vahti::HUUTONET_REGEX, crate::huutonet::ID),
+    ]
+});
+
+// This is the Vahti trait, implementing it (and a couple of other things)
+// provides support for a new site
+#[async_trait]
+pub trait Vahti
+where
+    Self: Sized,
+{
+    async fn update(
+        &mut self,
+        db: &Database,
+        ihs: ItemHistoryStorage,
+    ) -> Result<Vec<VahtiItem>, Error>;
+    async fn validate_url(&self) -> Result<bool, Error>;
+    fn is_valid_url(&self, url: &str) -> bool;
+    fn from_db(v: DbVahti) -> Result<Self, Error>;
+    fn to_db(&self) -> DbVahti;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VahtiItem {
+    pub deliver_to: Option<u64>,
+    pub delivery_method: Option<i32>,
+    pub site_id: i32,
     pub title: String,
+    pub vahti_url: Option<String>,
     pub url: String,
     pub img_url: String,
     pub published: i64,
@@ -28,159 +61,127 @@ pub struct VahtiItem {
     pub ad_id: i64,
 }
 
-#[derive(Clone, Copy)]
-pub enum SiteId {
-    Unknown = 0,
-    Tori = 1,
-    Huutonet = 2,
-}
+pub async fn new_vahti(
+    db: Database,
+    url: &str,
+    userid: u64,
+    delivery_method: i32,
+) -> Result<String, Error> {
+    let Some(site_id) = SITES
+        .iter()
+        .find(|(r, _)| r.is_match(url))
+        .map(|(_, sid)| *sid)
+    else {
+        return Err(Error::UnknownUrl(url.to_string()));
+    };
 
-impl From<&str> for SiteId {
-    fn from(url: &str) -> SiteId {
-        match url {
-            _ if TORI_REGEX.is_match(url) => SiteId::Tori,
-            _ if HUUTONET_REGEX.is_match(url) => SiteId::Huutonet,
-            _ => SiteId::Unknown,
-        }
-    }
-}
-
-impl Vahti {
-    fn to_api(&self) -> Result<String, anyhow::Error> {
-        // FIXME: I have no idea how to do this properly using enums
-        match self.site_id {
-            1 => Ok(crate::tori::api::vahti_to_api(&self.url)),
-            2 => Ok(crate::huutonet::api::vahti_to_api(&self.url)),
-            _ => bail!("Can't interpret a Vahti to an unknown site"),
-        }
-    }
-    async fn parse_after_from_text(&self, text: &str) -> Result<Vec<VahtiItem>, anyhow::Error> {
-        // FIXME: I have no idea how to do this properly using enums pt 2
-        match self.site_id {
-            1 => crate::tori::parse::api_parse_after(text, self.last_updated),
-            2 => crate::huutonet::parse::api_parse_after(text, self.last_updated),
-            _ => bail!("Can't interpret a Vahti to an unknown site"),
-        }
-    }
-    async fn parse_after(&self) -> Result<Vec<VahtiItem>, anyhow::Error> {
-        let res = reqwest::get(self.to_api().unwrap())
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-        self.parse_after_from_text(&res).await
-    }
-    async fn update(self, db: &Database, timestamp: i64) -> Result<usize, anyhow::Error> {
-        db.vahti_updated(self, Some(timestamp)).await
-    }
-}
-
-pub async fn new_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
-    let db = ctx.get_db().await?;
-    if db.fetch_vahti(url, userid.try_into()?).await.is_ok() {
+    if db.fetch_vahti(url, userid as i64).await.is_ok() {
         info!("Not adding a pre-defined Vahti {} for user {}", url, userid);
-        return Ok("Vahti on jo määritelty!".to_string());
+        return Err(Error::VahtiExists);
     }
-    match db.add_vahti_entry(url, userid.try_into()?).await {
-        Ok(_) => Ok("Vahti lisätty!".to_string()),
-        Err(e) => bail!("Virhe tapahtui vahdin lisäyksessä!: {}", e),
+
+    match db
+        .add_vahti_entry(url, userid as i64, site_id, delivery_method)
+        .await
+    {
+        Ok(_) => Ok(String::from("Vahti added succesfully")),
+        Err(e) => Err(e),
     }
 }
 
-pub async fn remove_vahti(ctx: &Context, url: &str, userid: u64) -> Result<String, anyhow::Error> {
-    let db = ctx.get_db().await?;
-    if db.fetch_vahti(url, userid.try_into()?).await.is_err() {
+pub async fn remove_vahti(db: Database, url: &str, userid: u64) -> Result<String, Error> {
+    if db.fetch_vahti(url, userid as i64).await.is_err() {
         info!("Not removing a nonexistant vahti!");
         return Ok(
-            "Kyseistä vahtia ei ole määritelty, tarkista että kirjoitit linkin oikein".to_string(),
+            "A Vahti is not defined with that url. Make sure the url is correct".to_string(),
         );
     }
-    match db.remove_vahti_entry(url, userid.try_into()?).await {
-        Ok(_) => Ok("Vahti poistettu!".to_string()),
-        Err(e) => bail!("Virhe tapahtui vahdin poistamisessa!: {}", e),
+    match db.remove_vahti_entry(url, userid as i64).await {
+        Ok(_) => Ok("Vahti removed!".to_string()),
+        Err(e) => Err(e),
     }
 }
 
-pub async fn is_valid_url(url: &str) -> bool {
-    if TORI_REGEX.is_match(url) {
-        return crate::tori::api::is_valid_url(url).await;
-    } else if HUUTONET_REGEX.is_match(url) {
-        return crate::huutonet::api::is_valid_url(url).await;
+impl Torimies {
+    pub async fn update_all_vahtis(&mut self) -> Result<(), Error> {
+        let vahtis = self.database.fetch_all_vahtis().await?;
+        self.update_vahtis(vahtis).await?;
+        Ok(())
     }
-    false
-}
 
-pub async fn update_all_vahtis(
-    db: Database,
-    itemhistory: Arc<Mutex<ItemHistory>>,
-    http: Arc<Http>,
-) -> Result<(), anyhow::Error> {
-    itemhistory.lock().await.purge_old();
-    let vahtis = db.fetch_all_vahtis_group().await?;
-    update_vahtis(db, itemhistory, http, vahtis).await?;
-    Ok(())
-}
+    pub async fn update_vahtis(&mut self, vahtis: Vec<DbVahti>) -> Result<(), Error> {
+        info!("Updating {} vahtis", vahtis.len());
+        let start = std::time::Instant::now();
 
-pub async fn update_vahtis(
-    db: Database,
-    itemhistory: Arc<Mutex<ItemHistory>>,
-    httpt: Arc<Http>,
-    grouped_vahtis: BTreeMap<String, Vec<Vahti>>,
-) -> Result<(), anyhow::Error> {
-    for (_, vahtis) in grouped_vahtis {
-        let http = httpt.clone();
-        let db = db.clone();
-        let itemhistory = itemhistory.clone();
-        tokio::spawn(async move {
-            let res = reqwest::get(vahtis[0].to_api().unwrap() + "&lim=10")
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-            let site_id = SiteId::from(vahtis[0].url.as_str());
-            for vahti in vahtis {
-                if let Ok(mut currentitems) = vahti.parse_after_from_text(&res).await {
-                    if currentitems.len() == 10 {
-                        debug!("Unsure on whether we got all the items... Querying for all of them now");
-                        currentitems = vahti.parse_after().await.unwrap();
-                    }
-                    if currentitems.is_empty() {
-                        continue;
-                    }
-                    let mut items = Vec::new();
-                    for item in currentitems.iter().rev() {
-                        if itemhistory.lock().await.contains(item.ad_id, vahti.user_id, site_id as i32) {
-                            debug!("Item {},{} in itemhistory! Skipping!", item.ad_id, site_id as i32);
-                            continue;
-                        }
-                        itemhistory.lock().await.add_item(
-                            item.ad_id,
-                            vahti.user_id,
-                            site_id as i32,
-                            chrono::Local::now().timestamp(),
-                            );
-                        let blacklist = db.fetch_user_blacklist(vahti.user_id).await.unwrap();
-                        if blacklist
-                            .contains(&(item.seller_id, site_id as i32))
-                        {
-                            info!(
-                                "Seller {} blacklisted by user {}! Skipping!",
-                                &item.seller_id, vahti.user_id
-                            );
-                            continue;
-                        }
-                        items.push(item.to_owned());
-                    }
-                    vahti
-                        .send_updates(http.clone(), items.clone())
-                        .await
-                        .unwrap();
-                    vahti.update(&db, currentitems[0].published).await.unwrap();
+        let ihs = self.itemhistorystorage.clone();
+
+        let db = self.database.clone();
+        let dm = self.delivery.clone();
+
+        let items = stream::iter(vahtis.iter().cloned())
+            .map(|v| (v, ihs.clone(), db.clone()))
+            .map(async move |(v, ihs, db)| match v.site_id {
+                #[cfg(feature = "tori")]
+                crate::tori::ID => {
+                    let Ok(mut tv) = ToriVahti::from_db(v) else {
+                        return vec![];
+                    };
+
+                    tv.update(&db, ihs.clone()).await.unwrap_or_default()
                 }
-            }
-        });
+                #[cfg(feature = "huutonet")]
+                crate::huutonet::ID => {
+                    if let Ok(mut hv) = HuutonetVahti::from_db(v) {
+                        hv.update(&db, ihs.clone()).await.unwrap_or_default()
+                    } else {
+                        vec![]
+                    }
+                }
+                i => panic!("Unsupported site_id {}", i),
+            })
+            .buffer_unordered(50)
+            .collect::<Vec<_>>()
+            .await;
+
+        let groups: Vec<Vec<VahtiItem>> = items
+            .iter()
+            .flatten()
+            .group_by(|v| {
+                (
+                    v.deliver_to.expect("bug: impossible"),
+                    v.delivery_method.expect("bug: impossible"),
+                )
+            })
+            .into_iter()
+            .map(|(_, g)| g.cloned().unique_by(|v| v.ad_id).collect())
+            .collect();
+
+        stream::iter(
+            groups
+                .iter()
+                .map(|v| (v, db.clone()))
+                .map(async move |(v, db)| {
+                    let mut v = v.clone();
+
+                    if let Some(fst) = v.first() {
+                        // NOTE: If db fails, blacklisted sellers are not filtered out
+                        if let Ok(bl) = db
+                            .fetch_user_blacklist(fst.deliver_to.expect("bug: impossible") as i64)
+                            .await
+                        {
+                            v.retain(|i| !bl.contains(&(i.seller_id, i.site_id)));
+                        }
+                    }
+                    v
+                })
+                .map(|v| (v, dm.clone()))
+                .map(async move |(v, dm)| perform_delivery(dm, v.await.clone()).await),
+        )
+        .buffer_unordered(50)
+        .collect::<Vec<_>>()
+        .await;
+
+        info!("Update took {}ms", start.elapsed().as_millis());
+        Ok(())
     }
-    Ok(())
 }

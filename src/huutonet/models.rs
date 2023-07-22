@@ -60,6 +60,10 @@ impl From<FullHuutonetItem> for VahtiItem {
             img_url = h.images[0].links.medium.clone();
         }
         VahtiItem {
+            delivery_method: None,
+            vahti_url: None,
+            deliver_to: None,
+            site_id: 2,
             title: h.title,
             url: h.links.alternative,
             img_url,

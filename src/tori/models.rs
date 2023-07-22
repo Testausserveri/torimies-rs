@@ -131,7 +131,8 @@ impl From<FullToriItem> for VahtiItem {
             }
             None => String::new(),
         };
-        let mut location_vec: Vec<String> = Vec::new();
+
+        let mut location_vec: Vec<String> = vec![];
         let mut loc = &t.locations[0];
         loop {
             location_vec.push(loc.label.clone());
@@ -140,6 +141,7 @@ impl From<FullToriItem> for VahtiItem {
             }
             loc = &loc.locations[0];
         }
+
         let mut prevloc = String::new();
         let mut location = String::new();
         for loc_string in location_vec.iter().rev() {
@@ -153,7 +155,12 @@ impl From<FullToriItem> for VahtiItem {
                 location += &format!(", {}", loc_string);
             }
         }
+
         VahtiItem {
+            vahti_url: None,
+            site_id: super::ID,
+            deliver_to: None,
+            delivery_method: None,
             title: t.subject,
             url: t.share_link,
             img_url,

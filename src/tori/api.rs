@@ -1,5 +1,6 @@
 use serde_json::Value;
 
+// FIXME: Use url crate to simplify this function
 pub fn vahti_to_api(vahti: &str) -> String {
     let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
     let args = &vahti[vahti.find('?').unwrap() + 1..];
@@ -64,7 +65,12 @@ pub fn vahti_to_api(vahti: &str) -> String {
 
 pub async fn is_valid_url(url: &str) -> bool {
     let url = vahti_to_api(url) + "&lim=0";
-    let response = reqwest::get(&url).await.unwrap().json::<Value>().await.unwrap();
+    let response = reqwest::get(&url)
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap();
     if let Some(counter_map) = response["counter_map"].as_object() {
         if let Some(amount) = counter_map["all"].as_i64() {
             amount > 0

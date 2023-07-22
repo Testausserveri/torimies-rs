@@ -3,7 +3,8 @@ use serenity::client::Context;
 use serenity::model::application::command::CommandOptionType;
 use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
 
-use crate::extensions::ClientContextExt;
+use super::extensions::ClientContextExt;
+use super::interaction::menu_from_options;
 use crate::vahti::remove_vahti;
 
 pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
@@ -27,14 +28,18 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
         }
     }
 
+    let db = ctx.get_db().await.unwrap();
+
     if !url.is_empty() {
-        remove_vahti(ctx, &url, command.user.id.0).await.unwrap()
+        remove_vahti(db, &url, command.user.id.0).await.unwrap()
     } else {
         let db = ctx.get_db().await.unwrap();
         let vahtilist = db
             .fetch_vahti_entries_by_user_id(command.user.id.0 as i64)
             .await
             .unwrap();
+
+        let urls = vahtilist.iter().cloned().map(|v| v.url).collect::<Vec<_>>();
 
         command
             .edit_original_interaction_response(&ctx.http, |message| {
@@ -44,20 +49,11 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
                     message.content("Ei vahteja! Aseta vahti komennolla `/vahti`")
                 } else {
                     message.components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_select_menu(|m| {
-                                m.custom_id("remove_vahti_menu");
-                                m.options(|o| {
-                                    for vahti in &vahtilist {
-                                        o.create_option(|oo| {
-                                            oo.label(&vahti.url);
-                                            oo.value(&vahti.url)
-                                        });
-                                    }
-                                    o
-                                })
-                            })
-                        })
+                        menu_from_options(
+                            c,
+                            "remove_vahti_menu",
+                            urls.iter().zip(urls.iter()).collect::<Vec<_>>(),
+                        )
                     })
                 }
             })
