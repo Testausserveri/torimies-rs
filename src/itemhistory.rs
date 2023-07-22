@@ -9,8 +9,8 @@ pub struct ItemHistory {
     items: Vec<(i64, i32, i64)>,
 }
 
-// vahti_id => ItemHistory
-pub type ItemHistoryStorage = Arc<DashMap<i32, Arc<Mutex<ItemHistory>>>>;
+// (user_id, delivery_method) => ItemHistory
+pub type ItemHistoryStorage = Arc<DashMap<(u64, i32), Arc<Mutex<ItemHistory>>>>;
 
 impl TypeMapKey for ItemHistory {
     type Value = Arc<Mutex<ItemHistory>>;
@@ -41,6 +41,11 @@ impl ItemHistory {
             .filter(|(_, _, timestamp)| timestamp > &(chrono::Local::now().timestamp() - 1000))
             .map(|t| t.to_owned())
             .collect();
+    }
+
+    pub fn extend(&mut self, other: &Self) {
+        self.items.extend_from_slice(other.items.as_slice());
+        self.items.dedup();
     }
 }
 

@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
@@ -10,8 +10,7 @@ use crate::delivery::perform_delivery;
 use crate::error::Error;
 #[cfg(feature = "huutonet")]
 use crate::huutonet::vahti::HuutonetVahti;
-#[cfg(feature = "tori")]
-use crate::itemhistory::ItemHistory;
+use crate::itemhistory::ItemHistoryStorage;
 use crate::models::DbVahti;
 #[cfg(feature = "tori")]
 use crate::tori::vahti::ToriVahti;
@@ -33,7 +32,11 @@ pub trait Vahti
 where
     Self: Sized,
 {
-    async fn update(&mut self, db: &Database) -> Result<Vec<VahtiItem>, Error>;
+    async fn update(
+        &mut self,
+        db: &Database,
+        ihs: ItemHistoryStorage,
+    ) -> Result<Vec<VahtiItem>, Error>;
     async fn validate_url(&self) -> Result<bool, Error>;
     fn is_valid_url(&self, url: &str) -> bool;
     fn from_db(v: DbVahti) -> Result<Self, Error>;
@@ -110,39 +113,36 @@ impl Torimies {
         info!("Updating {} vahtis", vahtis.len());
         let start = std::time::Instant::now();
 
-        // FIXME: Make itemhistory global (not just for tori)
         let ihs = self.itemhistorystorage.clone();
 
         let db = self.database.clone();
         let dm = self.delivery.clone();
 
         // FIXME: Not a very good solution
-        #[cfg(feature = "tori")]
-        for vahti in &vahtis {
-            if vahti.site_id == crate::tori::ID && ihs.get(&vahti.id).is_none() {
-                let ih = Arc::new(Mutex::new(ItemHistory::new()));
+        //#[cfg(feature = "tori")]
+        //for vahti in &vahtis {
+        //    if vahti.site_id == crate::tori::ID && ihs.get(&vahti.id).is_none() {
+        //        let ih = Arc::new(Mutex::new(ItemHistory::new()));
 
-                ihs.insert(vahti.id, ih);
-            }
-        }
+        //        ihs.insert(vahti.id, ih);
+        //    }
+        //}
 
         let items = stream::iter(vahtis.iter().cloned())
             .map(|v| (v, ihs.clone(), db.clone()))
             .map(async move |(v, ihs, db)| match v.site_id {
                 #[cfg(feature = "tori")]
                 crate::tori::ID => {
-                    let vid = v.id;
                     let Ok(mut tv) = ToriVahti::from_db(v) else {
                         return vec![];
                     };
 
-                    tv.itemhistory = ihs.get(&vid).map(|ih| ih.clone());
-                    tv.update(&db).await.unwrap_or_default()
+                    tv.update(&db, ihs.clone()).await.unwrap_or_default()
                 }
                 #[cfg(feature = "huutonet")]
                 crate::huutonet::ID => {
                     if let Ok(mut hv) = HuutonetVahti::from_db(v) {
-                        hv.update(&db).await.unwrap_or_default()
+                        hv.update(&db, ihs.clone()).await.unwrap_or_default()
                     } else {
                         vec![]
                     }

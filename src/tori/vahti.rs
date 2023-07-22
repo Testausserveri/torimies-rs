@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::database::Database;
 use crate::error::Error;
-use crate::itemhistory::ItemHistory;
+use crate::itemhistory::{ItemHistory, ItemHistoryStorage};
 use crate::models::DbVahti;
 use crate::tori::api::*;
 use crate::tori::parse::*;
@@ -23,27 +23,33 @@ pub struct ToriVahti {
     pub user_id: u64,
     pub last_updated: i64,
     pub site_id: i32,
-    pub itemhistory: Option<Arc<Mutex<ItemHistory>>>,
 }
 
 #[async_trait]
 impl Vahti for ToriVahti {
-    async fn update(&mut self, db: &Database) -> Result<Vec<VahtiItem>, Error> {
+    async fn update(
+        &mut self,
+        db: &Database,
+        ihs: ItemHistoryStorage,
+    ) -> Result<Vec<VahtiItem>, Error> {
         debug!("Updating {}", self.url);
+
+        if !ihs.contains_key(&(self.user_id, self.delivery_method)) {
+            let iht = Arc::new(Mutex::new(ItemHistory::new()));
+            ihs.insert((self.user_id, self.delivery_method), iht);
+        }
+
+        let ihref = ihs
+            .get(&(self.user_id, self.delivery_method))
+            .expect("bug: impossible");
+
+        let mut ih = ihref.lock().unwrap().clone();
 
         let res = reqwest::get(vahti_to_api(&self.url))
             .await?
             .text()
             .await?
             .to_string();
-
-        let mut ih = self
-            .itemhistory
-            .as_ref()
-            .expect("No itemhistory for vahti")
-            .lock()
-            .unwrap()
-            .clone();
 
         let ret = api_parse_after(&res, self.last_updated)?
             .iter()
@@ -64,8 +70,10 @@ impl Vahti for ToriVahti {
             })
             .collect::<Vec<_>>();
 
+        // NOTE: This still introduces some weird races
         ih.purge_old();
-        *self.itemhistory.as_ref().unwrap().lock().unwrap() = ih;
+        ih.extend(&ihref.clone().lock().unwrap());
+        *ihref.as_ref().lock().unwrap() = ih;
 
         if ret.is_empty() {
             return Ok(vec![]);
@@ -93,7 +101,6 @@ impl Vahti for ToriVahti {
 
         Ok(Self {
             id: v.id,
-            itemhistory: None,
             url: v.url,
             user_id: v.user_id as u64,
             last_updated: v.last_updated,
