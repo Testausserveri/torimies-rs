@@ -73,10 +73,12 @@ impl Vahti for HuutonetVahti {
             })
             .collect::<Vec<_>>();
 
-        // NOTE: This still introduces some weird races
         ih.purge_old();
-        ih.extend(&ihref.clone().lock().unwrap());
-        *ihref.as_ref().lock().unwrap() = ih;
+        {
+            let mut locked = ihref.lock().unwrap();
+            ih.extend(&locked);
+            *locked = ih;
+        }
 
         if ret.is_empty() {
             return Ok(vec![]);

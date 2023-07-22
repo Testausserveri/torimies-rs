@@ -26,9 +26,9 @@ extern crate tracing;
 #[macro_use]
 extern crate diesel;
 
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, RwLock};
 
-use command::Command;
+use command::{Command, Manager};
 use dashmap::DashMap;
 use database::Database;
 use delivery::Delivery;
@@ -41,24 +41,42 @@ static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
         .expect("Invalid UPDATED_INTERVAL")
 });
 
+#[derive(PartialEq, Clone)]
+enum State {
+    Running,
+    Shutdown,
+}
+
 #[derive(Clone)]
 struct Torimies {
     pub delivery: Arc<DashMap<i32, Box<dyn Delivery + Send + Sync>>>,
     pub command: Arc<DashMap<String, Box<dyn Command + Send + Sync>>>,
+    pub command_manager: Arc<DashMap<String, Box<dyn Manager + Send + Sync>>>,
     pub database: Database,
-    #[cfg(feature = "tori")]
     pub itemhistorystorage: crate::itemhistory::ItemHistoryStorage,
+    pub state: Arc<RwLock<State>>,
 }
 
+// False positive
+#[allow(clippy::needless_pass_by_ref_mut)]
 async fn update_loop(man: &mut Torimies) {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(*UPDATE_INTERVAL));
     loop {
-        // Update loop
+        // Exiting after recieved signal depends on
+        // 1) the ongoing update
+        // 2) the following UPDATE_INTERVAL-tick
         interval.tick().await;
+        let state = man.state.read().unwrap().clone();
+        if state == State::Shutdown {
+            break;
+        }
+
         if let Err(e) = man.update_all_vahtis().await {
             error!("Error while updating: {}", e);
         }
     }
+
+    info!("Update loop exited")
 }
 
 async fn command_loop(man: &Torimies) {
@@ -68,6 +86,23 @@ async fn command_loop(man: &Torimies) {
             .map(async move |mut c| c.start().await.ok()),
     )
     .await;
+    info!("Command loop exited")
+}
+
+async fn ctrl_c_handler(man: &Torimies) {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to register ctrl+c handler");
+    info!("Recieved ctrl+c");
+    info!("Setting State to State::Shutdown");
+    *man.state.write().unwrap() = State::Shutdown;
+    join_all(
+        man.command_manager
+            .iter()
+            .map(async move |c| c.shutdown().await),
+    )
+    .await;
+    info!("Ctrl+c handler exited");
 }
 
 impl Torimies {
@@ -75,9 +110,10 @@ impl Torimies {
         Self {
             delivery: Arc::new(DashMap::new()),
             command: Arc::new(DashMap::new()),
+            command_manager: Arc::new(DashMap::new()),
             database: db,
-            #[cfg(feature = "tori")]
             itemhistorystorage: Arc::new(DashMap::new()),
+            state: Arc::new(RwLock::new(State::Running)),
         }
     }
 
@@ -91,6 +127,15 @@ impl Torimies {
         commander: T,
     ) {
         self.command.insert(name.to_string(), Box::new(commander));
+    }
+
+    fn register_command_manager<T: Manager + Send + Sync + 'static>(
+        &mut self,
+        name: impl ToString,
+        manager: T,
+    ) {
+        self.command_manager
+            .insert(name.to_string(), Box::new(manager));
     }
 }
 
@@ -119,6 +164,7 @@ async fn main() {
             .await
             .expect("Discord commmand initialization failed");
 
+        the_man.register_command_manager(crate::command::discord::NAME, dc.manager());
         the_man.register_commander(crate::command::discord::NAME, dc);
     }
 
@@ -137,13 +183,16 @@ async fn main() {
             .await
             .expect("Telegram commmand initialization failed");
 
+        the_man.register_command_manager(crate::command::telegram::NAME, tg.manager());
         the_man.register_commander(crate::command::telegram::NAME, tg);
     }
 
-    let mut the_man2 = the_man.clone();
+    let the_man2 = the_man.clone();
+    let the_man3 = the_man.clone();
 
     let update = update_loop(&mut the_man);
-    let command = command_loop(&mut the_man2);
+    let command = command_loop(&the_man2);
+    let ctrl_c = ctrl_c_handler(&the_man3);
 
-    futures::join!(update, command);
+    futures::join!(update, command, ctrl_c);
 }

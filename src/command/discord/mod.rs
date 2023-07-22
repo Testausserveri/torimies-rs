@@ -4,7 +4,10 @@ mod poistaesto;
 mod poistavahti;
 mod vahti;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
+use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::application::command;
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::GatewayIntents;
@@ -44,6 +47,10 @@ pub struct Discord {
     pub client: Client,
 }
 
+pub struct Manager {
+    shard_manager: Arc<Mutex<ShardManager>>,
+}
+
 impl Discord {
     pub async fn init(db: &Database) -> Result<Self, Error> {
         let token =
@@ -65,15 +72,26 @@ impl Discord {
 
         Ok(Self { client })
     }
+
+    pub fn manager(&self) -> Manager {
+        Manager {
+            shard_manager: self.client.shard_manager.clone(),
+        }
+    }
+}
+
+#[async_trait]
+impl super::Manager for Manager {
+    async fn shutdown(&self) {
+        info!("Discord destroy");
+        self.shard_manager.lock().await.shutdown_all().await;
+        info!("Discord destroy done");
+    }
 }
 
 #[async_trait]
 impl Command for Discord {
     async fn start(&mut self) -> Result<(), Error> {
         Ok(self.client.start().await?)
-    }
-
-    async fn destroy(&mut self) {
-        self.client.shard_manager.lock().await.shutdown_all().await;
     }
 }

@@ -5,8 +5,10 @@ mod vahti;
 
 use async_trait::async_trait;
 use teloxide::adaptors::throttle::Limits;
+use teloxide::dispatching::{DefaultKey, ShutdownToken};
 use teloxide::prelude::*;
 use teloxide::utils::command::BotCommands;
+use teloxide::RequestError;
 
 use crate::command::Command;
 use crate::database::Database;
@@ -15,8 +17,12 @@ use crate::error::Error;
 pub const NAME: &str = "telegram";
 
 pub struct Telegram {
-    pub bot: Bot,
+    pub dispatcher: Dispatcher<Bot, RequestError, DefaultKey>,
     pub db: Database,
+}
+
+pub struct Manager {
+    shutdown_token: ShutdownToken,
 }
 
 impl Telegram {
@@ -26,10 +32,26 @@ impl Telegram {
 
         let bot = Bot::new(token);
 
+        let handler = Update::filter_message().branch(
+            dptree::entry()
+                .filter_command::<TelegramCommand>()
+                .endpoint(handle),
+        );
+
+        let dispatcher = Dispatcher::builder(bot.clone(), handler)
+            .dependencies(dptree::deps![db.clone()])
+            .build();
+
         Ok(Self {
-            bot,
+            dispatcher,
             db: db.clone(),
         })
+    }
+
+    pub fn manager(&self) -> Manager {
+        Manager {
+            shutdown_token: self.dispatcher.shutdown_token(),
+        }
     }
 }
 
@@ -65,24 +87,18 @@ async fn handle(bot: Bot, msg: Message, cmd: TelegramCommand, db: Database) -> R
 }
 
 #[async_trait]
+impl super::Manager for Manager {
+    async fn shutdown(&self) {
+        info!("Telegram destroy");
+        self.shutdown_token.shutdown().unwrap().await;
+        info!("Telegram destroy done");
+    }
+}
+
+#[async_trait]
 impl Command for Telegram {
     async fn start(&mut self) -> Result<(), Error> {
-        let handler = Update::filter_message().branch(
-            dptree::entry()
-                .filter_command::<TelegramCommand>()
-                .endpoint(handle),
-        );
-
-        Dispatcher::builder(self.bot.clone(), handler)
-            .dependencies(dptree::deps![self.db.clone()])
-            .enable_ctrlc_handler()
-            .build()
-            .dispatch()
-            .await;
+        self.dispatcher.dispatch().await;
         Ok(())
-    }
-
-    async fn destroy(&mut self) {
-        let _ = self.bot.log_out();
     }
 }
