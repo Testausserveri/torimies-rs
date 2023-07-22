@@ -93,11 +93,11 @@ pub async fn remove_vahti(db: Database, url: &str, userid: u64) -> Result<String
     if db.fetch_vahti(url, userid as i64).await.is_err() {
         info!("Not removing a nonexistant vahti!");
         return Ok(
-            "Kyseistä vahtia ei ole määritelty, tarkista että kirjoitit linkin oikein".to_string(),
+            "A Vahti is not defined with that url. Make sure the url is correct".to_string(),
         );
     }
     match db.remove_vahti_entry(url, userid as i64).await {
-        Ok(_) => Ok("Vahti poistettu!".to_string()),
+        Ok(_) => Ok("Vahti removed!".to_string()),
         Err(e) => Err(e),
     }
 }
@@ -117,16 +117,6 @@ impl Torimies {
 
         let db = self.database.clone();
         let dm = self.delivery.clone();
-
-        // FIXME: Not a very good solution
-        //#[cfg(feature = "tori")]
-        //for vahti in &vahtis {
-        //    if vahti.site_id == crate::tori::ID && ihs.get(&vahti.id).is_none() {
-        //        let ih = Arc::new(Mutex::new(ItemHistory::new()));
-
-        //        ihs.insert(vahti.id, ih);
-        //    }
-        //}
 
         let items = stream::iter(vahtis.iter().cloned())
             .map(|v| (v, ihs.clone(), db.clone()))
