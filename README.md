@@ -7,7 +7,23 @@ The vahtis in the database are periodically checked for new matches on the tori.
 
 ![](./media/demo.png)
 
+## Features
+Available features-flags are
+* "tori"
+* "huutonet"
+* "discord" (both "discord-command" and "discord-delivery")
+* "discord-delivery"
+* "discord-command"
+* "telegram" (both "telegram-command" and "telegram-delivery")
+* "telegram-delivery"
+* "telegram-command"
+
+Default features include all the features.
+Configure your instance according to your needs with `cargo build --release --no-default-features --features LIST,OF,FEATURES`
+Please not that the program does not compile if no site-support is configures (atleast one of features "tori" and "huutonet")
+
 ## Hosting the bot
+### Discord:
 If you do not have a discord application ready create one [here](https://discord.com/developers/applications). Create a bot user for the application if one doesn't already exist.
 
 When you have your discord application ready, visit the following link to generate an invite link: `https://discord.com/developers/applications/YourAppID/oauth2/url-generator`.
@@ -21,6 +37,17 @@ Make sure to create the `.env` file if it does not exist and ensure that it cont
 * `DATABASE_URL=database.sqlite` (or another location)
 * `DISCORD_TOKEN=YourToken` (the token for your discord bot)
 * `APPLICATION_ID=YourAppID` (the discord application id)
+
+Optional variables:
+* `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
+
+### Telegram:
+Create a bot with [@BotFather](https://t.me/botfather)
+set `TELOXIDE_TOKEN` value to the API-token.
+
+Make sure to create the `.env` file if it does not exist and ensure that it contains all the necessary variables:
+* `DATABASE_URL=database.sqlite` (or another location)
+* `TELOXIDE_TOKEN=YourToken` (the token for your telegram bot)
 
 Optional variables:
 * `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
@@ -48,7 +75,7 @@ The binary builds include a pre-initialized database.
 
 ### Autodeploy
 
-Use watchtower to pull automatically the latest image. 
+Use watchtower to pull automatically the latest image.
 
 #### For databases setup before diesel-migration
 
