@@ -12,16 +12,15 @@ use crate::error::Error;
 /// provide methods for the user to interact with Torimies
 ///
 /// The command trait should implement the start function
-/// It should be able to handle the
-/// events, calling the appropriate functions on it's own.
+/// and the manager function, which returns a Manager struct for the commander
+/// It should be able to handle the events, calling the appropriate functions on it's own.
 #[async_trait]
 pub trait Command {
     async fn start(&mut self) -> Result<(), Error>;
+    fn manager(&self) -> Box<dyn Manager + Send + Sync>;
 }
 
-/// The Manager trait is used for shutting down the corresponding
-/// Commander. It is recommended that the Commander-struct implements
-/// a way to generate a Manager instance for it.
+/// The Manager trait is used for shutting down the corresponding Commander.
 #[async_trait]
 pub trait Manager {
     async fn shutdown(&self);

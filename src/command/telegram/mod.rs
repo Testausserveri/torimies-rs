@@ -47,12 +47,6 @@ impl Telegram {
             db: db.clone(),
         })
     }
-
-    pub fn manager(&self) -> Manager {
-        Manager {
-            shutdown_token: self.dispatcher.shutdown_token(),
-        }
-    }
 }
 
 #[derive(BotCommands, Clone)]
@@ -100,5 +94,11 @@ impl Command for Telegram {
     async fn start(&mut self) -> Result<(), Error> {
         self.dispatcher.dispatch().await;
         Ok(())
+    }
+
+    fn manager(&self) -> Box<dyn super::Manager + Send + Sync> {
+        Box::new(Manager {
+            shutdown_token: self.dispatcher.shutdown_token(),
+        })
     }
 }

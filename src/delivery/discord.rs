@@ -37,6 +37,7 @@ impl Discord {
 impl VahtiItem {
     fn embed(self, e: &mut CreateEmbed) -> &mut CreateEmbed {
         match self.site_id {
+            #[cfg(feature = "tori")]
             crate::tori::ID => {
                 let color = match self.ad_type.as_str() {
                     "Myydään" => Color::DARK_GREEN,
@@ -70,6 +71,7 @@ impl VahtiItem {
                     e.image(&self.img_url);
                 }
             }
+            #[cfg(feature = "huutonet")]
             crate::huutonet::ID => {
                 e.color(Color::BLUE);
                 e.description(format!("[{}]({})", self.title, self.url));

@@ -21,9 +21,11 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
     let mut blacklist_names = vec![];
     for entry in &blacklist {
         blacklist_names.push(match entry.1 {
+            #[cfg(feature = "tori")]
             crate::tori::ID => crate::tori::seller::get_seller_name_from_id(entry.0)
                 .await
                 .unwrap_or(String::from("Unknown Seller")),
+            #[cfg(feature = "huutonet")]
             crate::huutonet::ID => crate::huutonet::seller::get_seller_name_from_id(entry.0)
                 .await
                 .unwrap_or(String::from("Unknown Seller")),

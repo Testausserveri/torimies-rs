@@ -108,6 +108,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .map(|e| e.fields.iter().find(|f| f.name == "Myyjä"))
                     .filter_map(|f| f.map(|ff| ff.value.clone()))
                     .filter_map(|s| match s {
+                        #[cfg(feature = "tori")]
                         _ if s.contains("https://www.tori.fi/li?&aid=") => Some((
                             s[1..s.find(']').unwrap()].to_string(),
                             format!(
@@ -116,6 +117,7 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                                 crate::tori::ID
                             ),
                         )),
+                        #[cfg(feature = "huutonet")]
                         _ if s.contains("https://www.huuto.net/kayttaja/") => Some((
                             s[1..s.find(']').unwrap()].to_string(),
                             format!(

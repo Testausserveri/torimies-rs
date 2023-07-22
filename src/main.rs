@@ -4,7 +4,6 @@
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "tori")]
 mod itemhistory;
 #[cfg(feature = "tori")]
 mod tori;
@@ -126,16 +125,9 @@ impl Torimies {
         name: impl ToString,
         commander: T,
     ) {
-        self.command.insert(name.to_string(), Box::new(commander));
-    }
-
-    fn register_command_manager<T: Manager + Send + Sync + 'static>(
-        &mut self,
-        name: impl ToString,
-        manager: T,
-    ) {
         self.command_manager
-            .insert(name.to_string(), Box::new(manager));
+            .insert(name.to_string(), commander.manager());
+        self.command.insert(name.to_string(), Box::new(commander));
     }
 }
 
@@ -164,7 +156,6 @@ async fn main() {
             .await
             .expect("Discord commmand initialization failed");
 
-        the_man.register_command_manager(crate::command::discord::NAME, dc.manager());
         the_man.register_commander(crate::command::discord::NAME, dc);
     }
 
@@ -183,7 +174,6 @@ async fn main() {
             .await
             .expect("Telegram commmand initialization failed");
 
-        the_man.register_command_manager(crate::command::telegram::NAME, tg.manager());
         the_man.register_commander(crate::command::telegram::NAME, tg);
     }
 

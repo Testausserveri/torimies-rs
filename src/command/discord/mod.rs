@@ -72,12 +72,6 @@ impl Discord {
 
         Ok(Self { client })
     }
-
-    pub fn manager(&self) -> Manager {
-        Manager {
-            shard_manager: self.client.shard_manager.clone(),
-        }
-    }
 }
 
 #[async_trait]
@@ -93,5 +87,11 @@ impl super::Manager for Manager {
 impl Command for Discord {
     async fn start(&mut self) -> Result<(), Error> {
         Ok(self.client.start().await?)
+    }
+
+    fn manager(&self) -> Box<dyn super::Manager + Send + Sync> {
+        Box::new(Manager {
+            shard_manager: self.client.shard_manager.clone(),
+        })
     }
 }
