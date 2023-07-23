@@ -87,13 +87,22 @@ impl Database {
             .execute(&self.database.get()?)?)
     }
 
-    pub async fn remove_vahti_entry(&self, arg_url: &str, userid: i64) -> Result<usize, Error> {
+    pub async fn remove_vahti_entry(
+        &self,
+        arg_url: &str,
+        userid: i64,
+        delivery: i32,
+    ) -> Result<usize, Error> {
         info!("Removing Vahti `{}` from the user {}", arg_url, userid);
         use crate::schema::Vahdit::dsl::*;
-        Ok(
-            diesel::delete(Vahdit.filter(url.eq(arg_url).and(user_id.eq(userid))))
-                .execute(&self.database.get()?)?,
+        Ok(diesel::delete(
+            Vahdit.filter(
+                url.eq(arg_url)
+                    .and(user_id.eq(userid))
+                    .and(delivery_method.eq(delivery)),
+            ),
         )
+        .execute(&self.database.get()?)?)
     }
 
     pub async fn fetch_vahti_entries_by_url(&self, arg_url: &str) -> Result<Vec<DbVahti>, Error> {

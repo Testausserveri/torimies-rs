@@ -157,7 +157,9 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                 let url = button.data.values[0].to_string();
                 let db = ctx.get_db().await.unwrap();
 
-                crate::vahti::remove_vahti(db, &url, userid).await.unwrap();
+                crate::vahti::remove_vahti(db, &url, userid, crate::delivery::discord::ID)
+                    .await
+                    .unwrap();
                 button
                     .edit_original_interaction_response(&ctx.http, |m| {
                         m.content(format!("Poistettu vahti: `{}`", url))

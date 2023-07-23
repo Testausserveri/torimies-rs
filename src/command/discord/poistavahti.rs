@@ -31,7 +31,9 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
     let db = ctx.get_db().await.unwrap();
 
     if !url.is_empty() {
-        remove_vahti(db, &url, command.user.id.0).await.unwrap()
+        remove_vahti(db, &url, command.user.id.0, crate::delivery::discord::ID)
+            .await
+            .unwrap()
     } else {
         let db = ctx.get_db().await.unwrap();
         let vahtilist = db

@@ -23,7 +23,12 @@ pub async fn run(msg: Message, vahti: String, db: Database) -> ResponseResult<St
         );
     }
 
-    Ok(remove_vahti(db, &vahti, msg.chat.id.0 as u64)
-        .await
-        .unwrap_or_else(|e| e.to_string()))
+    Ok(remove_vahti(
+        db,
+        &vahti,
+        msg.chat.id.0 as u64,
+        crate::delivery::telegram::ID,
+    )
+    .await
+    .unwrap_or_else(|e| e.to_string()))
 }

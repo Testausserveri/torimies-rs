@@ -89,14 +89,22 @@ pub async fn new_vahti(
     }
 }
 
-pub async fn remove_vahti(db: Database, url: &str, userid: u64) -> Result<String, Error> {
+pub async fn remove_vahti(
+    db: Database,
+    url: &str,
+    userid: u64,
+    delivery_method: i32,
+) -> Result<String, Error> {
     if db.fetch_vahti(url, userid as i64).await.is_err() {
         info!("Not removing a nonexistant vahti!");
         return Ok(
             "A Vahti is not defined with that url. Make sure the url is correct".to_string(),
         );
     }
-    match db.remove_vahti_entry(url, userid as i64).await {
+    match db
+        .remove_vahti_entry(url, userid as i64, delivery_method)
+        .await
+    {
         Ok(_) => Ok("Vahti removed!".to_string()),
         Err(e) => Err(e),
     }
