@@ -152,7 +152,10 @@ impl Database {
         vahti: DbVahti,
         timestamp: Option<i64>,
     ) -> Result<usize, Error> {
-        info!("Vahti {} for the user {}", vahti.url, vahti.user_id);
+        info!(
+            "Updating Vahti {} for the user {}",
+            vahti.url, vahti.user_id
+        );
         use crate::schema::Vahdit::dsl::*;
         let time = timestamp.unwrap_or_else(|| chrono::Local::now().timestamp());
         info!(
