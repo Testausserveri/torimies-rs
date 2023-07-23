@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
@@ -44,8 +45,10 @@ impl ItemHistory {
     }
 
     pub fn extend(&mut self, other: &Self) {
-        self.items.extend_from_slice(other.items.as_slice());
-        self.items.dedup();
+        let mut set: HashSet<(i64, i32, i64)> = other.items.clone().into_iter().collect();
+        set.extend(self.items.iter());
+        self.items = set.iter().cloned().collect();
+        self.purge_old()
     }
 }
 

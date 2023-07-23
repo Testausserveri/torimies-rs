@@ -73,7 +73,6 @@ impl Vahti for HuutonetVahti {
             })
             .collect::<Vec<_>>();
 
-        ih.purge_old();
         {
             let mut locked = ihref.lock().unwrap();
             ih.extend(&locked);

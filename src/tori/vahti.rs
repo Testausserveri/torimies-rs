@@ -70,7 +70,6 @@ impl Vahti for ToriVahti {
             })
             .collect::<Vec<_>>();
 
-        ih.purge_old();
         {
             let mut locked = ihref.lock().unwrap();
             ih.extend(&locked);
