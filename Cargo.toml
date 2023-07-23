@@ -39,7 +39,7 @@ features = ["bundled"]
 
 [dependencies.teloxide]
 version = "0.12.2"
-features = ["rustls", "throttle", "macros", "ctrlc_handler"]
+features = ["rustls", "throttle", "macros"]
 
 [dependencies]
 tracing = "0.1"
