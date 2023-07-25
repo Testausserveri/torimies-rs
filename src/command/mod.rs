@@ -15,13 +15,19 @@ use crate::error::Error;
 /// and the manager function, which returns a Manager struct for the commander
 /// It should be able to handle the events, calling the appropriate functions on it's own.
 #[async_trait]
-pub trait Command {
+pub trait Command
+where
+    Self: Send + Sync,
+{
     async fn start(&mut self) -> Result<(), Error>;
     fn manager(&self) -> Box<dyn Manager + Send + Sync>;
 }
 
 /// The Manager trait is used for shutting down the corresponding Commander.
 #[async_trait]
-pub trait Manager {
+pub trait Manager
+where
+    Self: Send + Sync,
+{
     async fn shutdown(&self);
 }

@@ -30,7 +30,7 @@ static SITES: LazyLock<Vec<(&LazyLock<Regex>, i32)>> = LazyLock::new(|| {
 #[async_trait]
 pub trait Vahti
 where
-    Self: Sized,
+    Self: Sized + Send + Sync,
 {
     async fn update(
         &mut self,
@@ -185,7 +185,6 @@ impl Torimies {
                 .map(|v| (v, dm.clone()))
                 .map(async move |(v, dm)| perform_delivery(dm, v.await.clone()).await),
         )
-        .buffer_unordered(*crate::FUTURES_MAX_BUFFER_SIZE)
         .collect::<Vec<_>>()
         .await;
 

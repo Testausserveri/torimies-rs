@@ -32,6 +32,7 @@ use dashmap::DashMap;
 use database::Database;
 use delivery::Delivery;
 use futures::future::join_all;
+use futures::stream::{self, StreamExt};
 
 static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
     std::env::var("UPDATE_INTERVAL")
@@ -101,19 +102,23 @@ async fn update_loop(man: &mut Torimies) {
 }
 
 async fn command_loop(man: &Torimies) {
-    join_all(man.command.iter_mut().map(async move |mut c| {
-        let mut failcount = 0;
-        while let Err(e) = c.start().await {
-            error!("Failed to start {} commander {}", c.key(), e);
-            failcount += 1;
-            if failcount > 2 {
-                error!("Giving up with starting {} commander", c.key());
-                break;
+    let mut balls = man.command.iter_mut().collect::<Vec<_>>();
+    let fs = stream::iter(balls.iter_mut())
+        .map(async move |c| {
+            let mut failcount = 0;
+            while let Err(e) = c.start().await {
+                error!("Failed to start {} commander {}", c.key(), e);
+                failcount += 1;
+                if failcount > 2 {
+                    error!("Giving up with starting {} commander", c.key());
+                    break;
+                }
             }
-        }
-    }))
-    .await;
+        })
+        .collect::<Vec<_>>()
+        .await;
 
+    join_all(fs).await;
     info!("Command loop exited")
 }
 
@@ -124,12 +129,13 @@ async fn ctrl_c_handler(man: &Torimies) {
     info!("Recieved ctrl+c");
     info!("Setting State to State::Shutdown");
     *man.state.write().unwrap() = State::Shutdown;
-    join_all(
-        man.command_manager
-            .iter()
-            .map(async move |c| c.shutdown().await),
-    )
-    .await;
+
+    let balls = man.command_manager.iter().collect::<Vec<_>>();
+    let fs = stream::iter(balls.iter())
+        .map(async move |c| c.shutdown().await)
+        .collect::<Vec<_>>()
+        .await;
+    join_all(fs).await;
     info!("Ctrl+c handler exited");
 }
 
@@ -209,9 +215,9 @@ async fn main() {
     let the_man2 = the_man.clone();
     let the_man3 = the_man.clone();
 
-    let update = update_loop(&mut the_man);
-    let command = command_loop(&the_man2);
-    let ctrl_c = ctrl_c_handler(&the_man3);
+    let update = tokio::task::spawn(async move { update_loop(&mut the_man).await });
+    let command = tokio::task::spawn(async move { command_loop(&the_man2).await });
+    let ctrl_c = tokio::task::spawn(async move { ctrl_c_handler(&the_man3).await });
 
-    futures::join!(update, command, ctrl_c);
+    let _ = futures::join!(update, command, ctrl_c);
 }

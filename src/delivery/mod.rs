@@ -19,7 +19,10 @@ use crate::vahti::VahtiItem;
 /// The deliver method should take in a Vec of VahtiItems, all of which
 /// have the same delivery_method and deliver_to fields
 #[async_trait]
-pub trait Delivery {
+pub trait Delivery
+where
+    Self: Send + Sync,
+{
     async fn deliver(&self, vs: Vec<VahtiItem>) -> Result<(), Error>;
 }
 
