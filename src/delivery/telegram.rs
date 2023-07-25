@@ -108,7 +108,7 @@ impl Delivery for Telegram {
                     // FIXME: Perhaps don't ignore an error here
                     .ok()
             })
-            .buffer_unordered(50)
+            .buffer_unordered(*crate::FUTURES_MAX_BUFFER_SIZE)
             .collect::<Vec<_>>()
             .await;
 

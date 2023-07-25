@@ -147,7 +147,7 @@ impl Torimies {
                 }
                 i => panic!("Unsupported site_id {}", i),
             })
-            .buffer_unordered(50)
+            .buffer_unordered(*crate::FUTURES_MAX_BUFFER_SIZE)
             .collect::<Vec<_>>()
             .await;
 
@@ -185,7 +185,7 @@ impl Torimies {
                 .map(|v| (v, dm.clone()))
                 .map(async move |(v, dm)| perform_delivery(dm, v.await.clone()).await),
         )
-        .buffer_unordered(50)
+        .buffer_unordered(*crate::FUTURES_MAX_BUFFER_SIZE)
         .collect::<Vec<_>>()
         .await;
 

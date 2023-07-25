@@ -40,6 +40,13 @@ static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
         .expect("Invalid UPDATED_INTERVAL")
 });
 
+static FUTURES_MAX_BUFFER_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    std::env::var("FUTURES_MAX_BUFFER_SIZE")
+        .unwrap_or(String::from("10"))
+        .parse()
+        .expect("Invalid FUTURES_MAX_BUFFER_SIZE")
+});
+
 #[derive(PartialEq, Clone)]
 enum State {
     Running,
@@ -64,8 +71,6 @@ async fn update_loop(man: &mut Torimies) {
         // Exiting after recieved signal depends on
         // 1) the ongoing update
         // 2) the following UPDATE_INTERVAL-tick
-        interval.tick().await;
-
         let mut failcount = 0;
 
         let state = if let Ok(state) = man.state.read() {
@@ -88,6 +93,8 @@ async fn update_loop(man: &mut Torimies) {
         if let Err(e) = man.update_all_vahtis().await {
             error!("Error while updating: {}", e);
         }
+
+        interval.tick().await;
     }
 
     info!("Update loop exited")
