@@ -65,7 +65,22 @@ async fn update_loop(man: &mut Torimies) {
         // 1) the ongoing update
         // 2) the following UPDATE_INTERVAL-tick
         interval.tick().await;
-        let state = man.state.read().unwrap().clone();
+
+        let mut failcount = 0;
+
+        let state = if let Ok(state) = man.state.read() {
+            state.clone()
+        } else {
+            error!("Failed to read Torimies.state");
+            failcount += 1;
+            if failcount > 2 {
+                error!("Assuming State::Shutdown");
+                State::Shutdown
+            } else {
+                State::Running
+            }
+        };
+
         if state == State::Shutdown {
             break;
         }
@@ -79,12 +94,19 @@ async fn update_loop(man: &mut Torimies) {
 }
 
 async fn command_loop(man: &Torimies) {
-    join_all(
-        man.command
-            .iter_mut()
-            .map(async move |mut c| c.start().await.ok()),
-    )
+    join_all(man.command.iter_mut().map(async move |mut c| {
+        let mut failcount = 0;
+        while let Err(e) = c.start().await {
+            error!("Failed to start {} commander {}", c.key(), e);
+            failcount += 1;
+            if failcount > 2 {
+                error!("Giving up with starting {} commander", c.key());
+                break;
+            }
+        }
+    }))
     .await;
+
     info!("Command loop exited")
 }
 
