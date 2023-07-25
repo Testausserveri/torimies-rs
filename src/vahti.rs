@@ -151,6 +151,8 @@ impl Torimies {
             .collect::<Vec<_>>()
             .await;
 
+        info!("Recieving items took {}ms", start.elapsed().as_millis());
+
         let groups: Vec<Vec<VahtiItem>> = items
             .iter()
             .flatten()
@@ -164,6 +166,8 @@ impl Torimies {
             .map(|(_, g)| g.cloned().unique_by(|v| v.ad_id).collect())
             .collect();
 
+        // False positive, because we actually want to .await the future elsewhere
+        #[allow(clippy::async_yields_async)]
         stream::iter(
             groups
                 .iter()
@@ -182,10 +186,12 @@ impl Torimies {
                     }
                     v
                 })
-                .map(|v| (v, dm.clone()))
-                .map(async move |(v, dm)| perform_delivery(dm, v.await.clone()).await),
+                .map(|v| (v, dm.clone())),
         )
-        .collect::<Vec<_>>()
+        .then(|(v, dm)| async move { perform_delivery(dm.clone(), v.await) })
+        .for_each_concurrent(*crate::FUTURES_MAX_BUFFER_SIZE, |d| async move {
+            d.await.ok();
+        })
         .await;
 
         info!("Update took {}ms", start.elapsed().as_millis());
