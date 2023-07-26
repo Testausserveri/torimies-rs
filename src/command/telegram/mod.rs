@@ -32,6 +32,8 @@ impl Telegram {
 
         let bot = Bot::new(token);
 
+        let _ = bot.set_my_commands(TelegramCommand::bot_commands()).await;
+
         let handler = Update::filter_message().branch(
             dptree::entry()
                 .filter_command::<TelegramCommand>()
