@@ -33,12 +33,6 @@ impl Vahti for ToriVahti {
         ihs: ItemHistoryStorage,
     ) -> Result<Vec<VahtiItem>, Error> {
         debug!("Updating {}", self.url);
-
-        if !ihs.contains_key(&(self.user_id, self.delivery_method)) {
-            let iht = Arc::new(Mutex::new(ItemHistory::new()));
-            ihs.insert((self.user_id, self.delivery_method), iht);
-        }
-
         let ihref = ihs
             .get(&(self.user_id, self.delivery_method))
             .expect("bug: impossible");

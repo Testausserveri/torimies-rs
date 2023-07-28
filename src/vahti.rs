@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
@@ -10,7 +10,7 @@ use crate::delivery::perform_delivery;
 use crate::error::Error;
 #[cfg(feature = "huutonet")]
 use crate::huutonet::vahti::HuutonetVahti;
-use crate::itemhistory::ItemHistoryStorage;
+use crate::itemhistory::{ItemHistory, ItemHistoryStorage};
 use crate::models::DbVahti;
 #[cfg(feature = "tori")]
 use crate::tori::vahti::ToriVahti;
@@ -122,6 +122,16 @@ impl Torimies {
         let start = std::time::Instant::now();
 
         let ihs = self.itemhistorystorage.clone();
+
+        // pre-populate ItemHistoryStorage to prevent deadlocks on inserts
+        vahtis.iter().for_each(|v| {
+            if !ihs.contains_key(&(v.user_id as u64, v.delivery_method)) {
+                ihs.insert(
+                    (v.user_id as u64, v.delivery_method),
+                    Arc::new(Mutex::new(ItemHistory::new())),
+                );
+            }
+        });
 
         let db = self.database.clone();
         let dm = self.delivery.clone();
