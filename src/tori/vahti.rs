@@ -1,11 +1,11 @@
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use regex::Regex;
 
 use crate::database::Database;
 use crate::error::Error;
-use crate::itemhistory::{ItemHistory, ItemHistoryStorage};
+use crate::itemhistory::ItemHistoryStorage;
 use crate::models::DbVahti;
 use crate::tori::api::*;
 use crate::tori::parse::*;

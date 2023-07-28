@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use regex::Regex;
@@ -9,7 +9,7 @@ pub static HUUTONET_REGEX: LazyLock<Regex> =
 use super::api::{is_valid_url, vahti_to_api};
 use super::parse::api_parse_after;
 use crate::error::Error;
-use crate::itemhistory::{ItemHistory, ItemHistoryStorage};
+use crate::itemhistory::ItemHistoryStorage;
 use crate::models::DbVahti;
 use crate::vahti::{Vahti, VahtiItem};
 use crate::Database;
@@ -32,12 +32,6 @@ impl Vahti for HuutonetVahti {
         ihs: ItemHistoryStorage,
     ) -> Result<Vec<VahtiItem>, Error> {
         debug!("Updating {}", self.url);
-
-        if !ihs.contains_key(&(self.user_id, self.delivery_method)) {
-            let iht = Arc::new(Mutex::new(ItemHistory::new()));
-            ihs.insert((self.user_id, self.delivery_method), iht);
-        }
-
         let ihref = ihs
             .get(&(self.user_id, self.delivery_method))
             .expect("bug: impossible");
