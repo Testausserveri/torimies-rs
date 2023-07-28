@@ -43,7 +43,7 @@ static UPDATE_INTERVAL: LazyLock<u64> = LazyLock::new(|| {
 
 static FUTURES_MAX_BUFFER_SIZE: LazyLock<usize> = LazyLock::new(|| {
     std::env::var("FUTURES_MAX_BUFFER_SIZE")
-        .unwrap_or(String::from("10"))
+        .unwrap_or(String::from("50"))
         .parse()
         .expect("Invalid FUTURES_MAX_BUFFER_SIZE")
 });

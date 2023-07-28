@@ -52,7 +52,7 @@ Make sure to create the `.env` file if it does not exist and ensure that it cont
 
 Optional variables:
 * `UPDATE_INTERVAL=time_in_seconds` (the interval at which the bot updates vahtis, defaults to 60)
-* `FUTURES_MAX_BUFFER_SIZE=integer` (the argument given to [buffer\_unordered](https://docs.rs/futures/0.3.28/futures/prelude/stream/trait.StreamExt.html#method.buffer_unordered) defining the amount of concurrent futures. Recommended amount is ~6\*`$(nproc)` and a larger amount may cause problems, defaults to 10)
+* `FUTURES_MAX_BUFFER_SIZE=integer` (the argument given to [buffer\_unordered](https://docs.rs/futures/0.3.28/futures/prelude/stream/trait.StreamExt.html#method.buffer_unordered) defining the amount of concurrent futures. Recommended amount is `50`, raising it above that will most likely bring diminishing returns. Default value is 50)
 
 ### With Docker
 
