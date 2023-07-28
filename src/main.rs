@@ -72,6 +72,7 @@ async fn update_loop(man: &mut Torimies) {
         // Exiting after recieved signal depends on
         // 1) the ongoing update
         // 2) the following UPDATE_INTERVAL-tick
+        interval.tick().await;
         let mut failcount = 0;
 
         let state = if let Ok(state) = man.state.read() {
@@ -94,8 +95,6 @@ async fn update_loop(man: &mut Torimies) {
         if let Err(e) = man.update_all_vahtis().await {
             error!("Error while updating: {}", e);
         }
-
-        interval.tick().await;
     }
 
     info!("Update loop exited")
