@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
@@ -45,9 +45,14 @@ impl ItemHistory {
     }
 
     pub fn extend(&mut self, other: &Self) {
-        let mut set: HashSet<(i64, i32, i64)> = other.items.clone().into_iter().collect();
-        set.extend(self.items.iter());
-        self.items = set.iter().cloned().collect();
+        let mut map: HashMap<(i64, i32), i64> = other
+            .items
+            .clone()
+            .into_iter()
+            .map(|(iid, sid, t)| ((iid, sid), t))
+            .collect();
+        map.extend(self.items.iter().map(|(iid, sid, t)| ((*iid, *sid), *t)));
+        self.items = map.iter().map(|((iid, sid), t)| (*iid, *sid, *t)).collect();
         self.purge_old()
     }
 }
