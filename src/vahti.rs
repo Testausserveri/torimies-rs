@@ -123,7 +123,9 @@ impl Torimies {
 
         let ihs = self.itemhistorystorage.clone();
 
-        // pre-populate ItemHistoryStorage to prevent deadlocks on inserts
+        // NOTE: pre-populate ItemHistoryStorage to prevent deadlocks on inserts
+        // this must not be done concurrently and must be done while there are
+        // no references (mutable or unmutable) into the ihs dashmap
         vahtis.iter().for_each(|v| {
             if !ihs.contains_key(&(v.user_id as u64, v.delivery_method)) {
                 ihs.insert(
