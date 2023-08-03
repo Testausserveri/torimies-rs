@@ -37,14 +37,13 @@ impl Vahti for ToriVahti {
             .get(&(self.user_id, self.delivery_method))
             .expect("bug: impossible");
 
-        let mut ih = ihref.lock().unwrap().clone();
-
         let res = reqwest::get(vahti_to_api(&self.url))
             .await?
             .text()
             .await?
             .to_string();
 
+        let mut ih = ihref.lock().unwrap().clone();
         let ret = api_parse_after(&res, self.last_updated)?
             .iter()
             .filter_map(|i| {
