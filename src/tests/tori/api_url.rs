@@ -38,22 +38,22 @@ fn query_with_0_category() {
 
 #[test]
 fn query_with_price_range() {
-    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&ps=100&pe=200";
-    let expected = API_BASE.to_owned() + "&q=thinkpad&suborder=100-200";
+    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&ps=2&pe=4";
+    let expected = API_BASE.to_owned() + "&q=thinkpad&suborder=50-100";
     assert_eq!(expected, vahti_to_api(url));
 }
 
 #[test]
 fn price_range_no_start() {
-    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&pe=200";
-    let expected = API_BASE.to_owned() + "&q=thinkpad";
+    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&pe=5";
+    let expected = API_BASE.to_owned() + "&q=thinkpad&suborder=-250";
     assert_eq!(expected, vahti_to_api(url));
 }
 
 #[test]
 fn price_range_no_end() {
-    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&ps=200";
-    let expected = API_BASE.to_owned() + "&q=thinkpad";
+    let url = "https://www.tori.fi/koko_suomi?q=thinkpad&ps=6";
+    let expected = API_BASE.to_owned() + "&q=thinkpad&suborder=500-";
     assert_eq!(expected, vahti_to_api(url));
 }
 

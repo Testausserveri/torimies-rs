@@ -1,5 +1,7 @@
 use serde_json::Value;
 
+const TORI_PRICES: [&str; 9] = ["0", "25", "50", "75", "100", "250", "500", "1000", "2000"];
+
 // FIXME: Use url crate to simplify this function
 pub fn vahti_to_api(vahti: &str) -> String {
     let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
@@ -16,11 +18,21 @@ pub fn vahti_to_api(vahti: &str) -> String {
         }
         match parts[0] {
             "ps" => {
-                startprice = parts[1];
+                startprice = if let Ok(n) = parts[1].parse::<usize>() {
+                    TORI_PRICES.iter().nth(n).unwrap_or(&parts[1]).to_owned()
+                } else {
+                    ""
+                };
+
                 price_set = true;
             }
             "pe" => {
-                endprice = parts[1];
+                endprice = if let Ok(n) = parts[1].parse::<usize>() {
+                    TORI_PRICES.iter().nth(n).unwrap_or(&parts[1]).to_owned()
+                } else {
+                    ""
+                };
+
                 price_set = true;
             }
             "cg" => {
@@ -57,7 +69,7 @@ pub fn vahti_to_api(vahti: &str) -> String {
     url = url.replace("%C4", "Ä");
     url = url.replace("%F6", "ö");
     url = url.replace("%D6", "Ö");
-    if price_set && !startprice.is_empty() && !endprice.is_empty() {
+    if price_set && (!startprice.is_empty() || !endprice.is_empty()) {
         url += &format!("&suborder={}-{}", &startprice, &endprice);
     }
     url
