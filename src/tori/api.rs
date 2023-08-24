@@ -7,7 +7,6 @@ pub fn vahti_to_api(vahti: &str) -> String {
     let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
     let args = &vahti[vahti.find('?').unwrap() + 1..];
     let mut price_set = false;
-    let mut region_defined = false;
     let mut startprice = "";
     let mut endprice = "";
     let mut api_args = Vec::<(String, String)>::new();
@@ -45,22 +44,16 @@ pub fn vahti_to_api(vahti: &str) -> String {
             "w" => {
                 let reg: i32 = parts[1].parse().unwrap();
                 if reg >= 100 {
-                    region_defined = true;
                     api_args.push(("region".to_string(), (reg - 100).to_string()));
                 }
             }
-            "ca" => api_args.push(("caregion".to_string(), parts[1].to_string())),
+            "ca" => {}
             _ => api_args.push((parts[0].to_string(), parts[1].to_string())),
         }
     }
     for arg in api_args {
         if arg.0.is_empty() {
             continue;
-        }
-        if arg.0 == "caregion" {
-            if !region_defined {
-                url += &format!("&region={}", arg.1);
-            }
         } else {
             url += &format!("&{}={}", arg.0, arg.1);
         }

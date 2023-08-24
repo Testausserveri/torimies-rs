@@ -86,9 +86,9 @@ fn query_with_area() {
 }
 
 #[test]
-fn query_with_caregion() {
+fn query_with_ca() {
     let url = "https://www.tori.fi/koko_suomi?q=thinkpad&ca=10";
-    let expected = API_BASE.to_owned() + "&q=thinkpad&region=10";
+    let expected = API_BASE.to_owned() + "&q=thinkpad";
     assert_eq!(expected, vahti_to_api(url));
 }
 
@@ -115,16 +115,17 @@ fn query_with_different_base() {
 
 #[test]
 fn multiquery1() {
-    let url = "https://www.tori.fi/pohjanmaa?q=yoga-matto&cg=0&w=1&st=s&st=k&st=u&st=h&st=g&ca=5&l=0&md=th";
+    let url =
+        "https://www.tori.fi/pohjanmaa?q=yoga-matto&cg=0&w=1&st=s&st=k&st=u&st=h&st=g&l=0&md=th";
     let expected = API_BASE.to_owned()
-        + "&q=yoga-matto&ad_type=s&ad_type=k&ad_type=u&ad_type=h&ad_type=g&region=5&l=0&md=th";
+        + "&q=yoga-matto&ad_type=s&ad_type=k&ad_type=u&ad_type=h&ad_type=g&l=0&md=th";
     assert_eq!(expected, vahti_to_api(url));
 }
 
 #[test]
 fn multiquery2() {
-    let url = "https://www.tori.fi/uusimaa?q=vinkulelu+koiralle&cg=0&w=1&st=s&st=k&st=u&st=h&st=g&ca=18&l=0&md=th";
-    let expected =
-        API_BASE.to_owned() + "&q=vinkulelu+koiralle&ad_type=s&ad_type=k&ad_type=u&ad_type=h&ad_type=g&region=18&l=0&md=th";
+    let url = "https://www.tori.fi/uusimaa?q=vinkulelu+koiralle&cg=0&w=1&st=s&st=k&st=u&st=h&st=g&l=0&md=th";
+    let expected = API_BASE.to_owned()
+        + "&q=vinkulelu+koiralle&ad_type=s&ad_type=k&ad_type=u&ad_type=h&ad_type=g&l=0&md=th";
     assert_eq!(expected, vahti_to_api(url));
 }
