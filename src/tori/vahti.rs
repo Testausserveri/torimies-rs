@@ -73,11 +73,8 @@ impl Vahti for ToriVahti {
             return Ok(vec![]);
         }
 
-        db.vahti_updated(
-            self.to_db(),
-            ret.iter().max_by_key(|i| i.published).map(|i| i.published),
-        )
-        .await?;
+        db.vahti_updated(self.to_db(), ret.iter().map(|i| i.published).max())
+            .await?;
 
         Ok(ret)
     }

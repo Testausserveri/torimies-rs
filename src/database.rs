@@ -162,11 +162,14 @@ impl Database {
             "Newest item {}s ago",
             chrono::Local::now().timestamp() - time
         );
-        Ok(
-            diesel::update(Vahdit.filter(url.eq(vahti.url).and(user_id.eq(vahti.user_id))))
-                .set(last_updated.eq(time))
-                .execute(&self.database.get()?)?,
+        Ok(diesel::update(
+            Vahdit.filter(
+                url.eq(vahti.url)
+                    .and(user_id.eq(vahti.user_id).and(last_updated.lt(time))),
+            ),
         )
+        .set(last_updated.eq(time))
+        .execute(&self.database.get()?)?)
     }
 
     pub async fn fetch_user_blacklist(&self, userid: i64) -> Result<Vec<(i32, i32)>, Error> {
