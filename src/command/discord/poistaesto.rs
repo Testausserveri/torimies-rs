@@ -1,20 +1,18 @@
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::{CreateCommand, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 
 use super::extensions::ClientContextExt;
 use super::interaction::menu_from_options;
 
-pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-        .name("poistaesto")
-        .description("Salli aiemmin estetty myyjä")
+pub fn register() -> CreateCommand {
+    CreateCommand::new("poistaesto").description("Salli aiemmin estetty myyjä")
 }
 
-pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
+pub async fn run(ctx: &Context, command: &CommandInteraction) -> String {
     let db = ctx.get_db().await.unwrap();
     let blacklist = db
-        .fetch_user_blacklist(command.user.id.0 as i64)
+        .fetch_user_blacklist(u64::from(command.user.id) as i64)
         .await
         .unwrap();
 
@@ -38,18 +36,13 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
         .zip(blacklist.iter().map(|ids| format!("{},{}", ids.0, ids.1)))
         .collect::<Vec<_>>();
 
-    command
-        .edit_original_interaction_response(&ctx.http, |message| {
-            message.content("Valitse poistettava(t) esto/estot");
-
-            if blacklist.is_empty() {
-                message.content("Ei estettyjä myyjiä!")
-            } else {
-                message.components(|c| menu_from_options(c, "unblock_seller", options))
-            }
-        })
-        .await
-        .unwrap();
+    let mut edit = EditInteractionResponse::new().content("Valitse poistettava(t) esto/estot");
+    if blacklist.is_empty() {
+        edit = edit.content("Ei estettyjä myyjiä!");
+    } else {
+        edit = edit.components(menu_from_options("unblock_seller", options));
+    }
+    command.edit_response(&ctx.http, edit).await.unwrap();
 
     String::new()
 }

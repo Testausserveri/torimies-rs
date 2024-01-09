@@ -7,9 +7,8 @@ mod vahti;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::model::application::command;
-use serenity::model::application::interaction::Interaction;
+use serenity::gateway::ShardManager;
+use serenity::model::application::Interaction;
 use serenity::model::gateway::GatewayIntents;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
@@ -30,12 +29,14 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
-
-        let _ = command::Command::create_global_application_command(&ctx.http, |command| {
-            vahti::register(command);
-            poistavahti::register(command);
-            poistaesto::register(command)
-        })
+        let _ = serenity::model::application::Command::set_global_commands(
+            &ctx.http,
+            vec![
+                vahti::register(),
+                poistavahti::register(),
+                poistaesto::register(),
+            ],
+        )
         .await;
     }
     async fn resume(&self, _: Context, _: ResumedEvent) {
@@ -48,7 +49,7 @@ pub struct Discord {
 }
 
 pub struct Manager {
-    shard_manager: Arc<Mutex<ShardManager>>,
+    shard_manager: Arc<ShardManager>,
 }
 
 impl Discord {
@@ -62,7 +63,7 @@ impl Discord {
             .expect("Invalid APPLICATION_ID");
 
         let client = Client::builder(&token, GatewayIntents::non_privileged())
-            .application_id(application_id)
+            .application_id(application_id.into())
             .event_handler(Handler)
             .await?;
 
@@ -78,7 +79,7 @@ impl Discord {
 impl super::Manager for Manager {
     async fn shutdown(&self) {
         info!("Discord destroy");
-        self.shard_manager.lock().await.shutdown_all().await;
+        self.shard_manager.shutdown_all().await;
         info!("Discord destroy done");
     }
 }

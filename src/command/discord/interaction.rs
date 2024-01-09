@@ -1,41 +1,34 @@
 use itertools::Itertools;
-use serenity::builder::CreateComponents;
-use serenity::model::application::interaction::{Interaction, InteractionResponseType};
+use serenity::all::ComponentInteractionDataKind;
+use serenity::builder::{
+    CreateActionRow, CreateSelectMenu, CreateSelectMenuOption, EditInteractionResponse,
+};
+use serenity::model::application::Interaction;
 use serenity::prelude::*;
 
 use super::extensions::ClientContextExt;
 
-pub fn menu_from_options<'a>(
-    components: &'a mut CreateComponents,
-    custom_id: &'a str,
+pub fn menu_from_options(
+    custom_id: &str,
     options: Vec<(impl ToString, impl ToString)>,
-) -> &'a mut CreateComponents {
-    components.create_action_row(|r| {
-        r.create_select_menu(|m| {
-            m.custom_id(custom_id);
-            m.options(|o| {
-                for (label, value) in &options {
-                    o.create_option(|oo| {
-                        oo.label(&label.to_string());
-                        oo.value(&value.to_string())
-                    });
-                }
-                o
-            })
-        })
-    })
+) -> Vec<CreateActionRow> {
+    let menu_options = options
+        .iter()
+        .map(|(l, v)| CreateSelectMenuOption::new(l.to_string(), v.to_string()))
+        .collect::<Vec<_>>();
+    let menu = CreateSelectMenu::new(
+        custom_id,
+        serenity::builder::CreateSelectMenuKind::String {
+            options: menu_options,
+        },
+    );
+    vec![CreateActionRow::SelectMenu(menu)]
 }
 
 pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
     match interaction {
-        Interaction::ApplicationCommand(command) => {
-            command
-                .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|d| d.ephemeral(true));
-                    response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-                })
-                .await
-                .unwrap();
+        Interaction::Command(command) => {
+            command.defer_ephemeral(&ctx.http).await.unwrap();
 
             let content = match command.data.name.as_str() {
                 "vahti" => super::vahti::run(&ctx, &command).await,
@@ -46,23 +39,14 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
 
             if !content.is_empty() {
                 command
-                    .edit_original_interaction_response(&ctx.http, |message| {
-                        message.content(&content)
-                    })
+                    .edit_response(&ctx.http, EditInteractionResponse::new().content(&content))
                     .await
                     .unwrap();
             }
         }
-        Interaction::MessageComponent(button) => {
-            button
-                .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|d| d.ephemeral(true));
-                    response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-                })
-                .await
-                .unwrap();
-
+        Interaction::Component(button) => {
             if button.data.custom_id == "remove_vahti" {
+                button.defer_ephemeral(&ctx.http).await.unwrap();
                 let message = button.message.clone();
                 let urls: Vec<_> = message
                     .embeds
@@ -73,25 +57,24 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
 
                 if !urls.is_empty() {
                     button
-                        .edit_original_interaction_response(&ctx.http, |m| {
-                            m.components(|c| {
-                                menu_from_options(
-                                    c,
-                                    "remove_vahti_menu",
-                                    urls.iter().zip(urls.iter()).collect::<Vec<_>>(),
-                                )
-                            })
-                        })
+                        .edit_response(
+                            &ctx.http,
+                            EditInteractionResponse::new().components(menu_from_options(
+                                "remove_vahti_menu",
+                                urls.iter().zip(urls.iter()).collect::<Vec<_>>(),
+                            )),
+                        )
                         .await
                         .unwrap();
                 } else {
                     button
-                        .edit_original_interaction_response(&ctx.http, |m| {
-                                    m.content("Creating Vahti deletion menu failed, try deleting the Vahti manually with /poistavahti")
-                        })
+                        .edit_response(&ctx.http,
+                            EditInteractionResponse::new().content("Creating Vahti deletion menu failed, try deleting the Vahti manually with /poistavahti")
+                        )
                     .await.unwrap();
                 }
             } else if button.data.custom_id == "block_seller" {
+                button.defer_ephemeral(&ctx.http).await.unwrap();
                 let message = button.message.clone();
 
                 let urls: Vec<_> = message
@@ -132,16 +115,24 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .collect::<Vec<_>>();
 
                 button
-                    .edit_original_interaction_response(&ctx.http, |m| {
-                        m.content("Choose the seller to block");
-                        m.components(|c| menu_from_options(c, "block_seller_menu", sellers))
-                    })
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new()
+                            .content("Choose the seller to block")
+                            .components(menu_from_options("block_seller_menu", sellers)),
+                    )
                     .await
                     .unwrap();
             } else if button.data.custom_id == "unblock_seller" {
+                button.defer_ephemeral(&ctx.http).await.unwrap();
                 let db = ctx.get_db().await.unwrap();
-                let userid = button.user.id.0;
-                let ids: Vec<&str> = button.data.values[0].split(',').collect();
+                let userid = u64::from(button.user.id);
+                let ids: Vec<String> = match button.data.kind.clone() {
+                    ComponentInteractionDataKind::StringSelect { values } => {
+                        values[0].split(',').map(|s| s.to_string()).collect()
+                    }
+                    _ => unreachable!(),
+                };
                 let sellerid = ids[0].parse::<i32>().unwrap();
                 let siteid = ids[1].parse::<i32>().unwrap();
 
@@ -149,27 +140,66 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .await
                     .unwrap();
                 button
-                    .edit_original_interaction_response(&ctx.http, |m| m.content("Esto poistettu!"))
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new().content("Esto poistettu!"),
+                    )
                     .await
                     .unwrap();
             } else if button.data.custom_id == "remove_vahti_menu" {
-                let userid = button.user.id.0;
-                let url = button.data.values[0].to_string();
+                button.defer_ephemeral(&ctx.http).await.unwrap();
+                let userid = u64::from(button.user.id);
+                let url = match button.data.kind.clone() {
+                    ComponentInteractionDataKind::StringSelect { values } => values[0].to_string(),
+                    _ => unreachable!(),
+                };
                 let db = ctx.get_db().await.unwrap();
 
                 crate::vahti::remove_vahti(db, &url, userid, crate::delivery::discord::ID)
                     .await
                     .unwrap();
                 button
-                    .edit_original_interaction_response(&ctx.http, |m| {
-                        m.content(format!("Poistettu vahti: `{}`", url))
-                    })
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new()
+                            .content(format!("Poistettu vahti: `{}`", url)),
+                    )
                     .await
                     .unwrap();
+            } else if button.data.custom_id.starts_with("remove_vahti_menu_page_") {
+                let page_number: usize = button
+                    .data
+                    .custom_id
+                    .strip_prefix("remove_vahti_menu_page_")
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+
+                button
+                    .create_response(
+                        &ctx.http,
+                        serenity::builder::CreateInteractionResponse::UpdateMessage(
+                            super::poistavahti::update_message(
+                                &ctx,
+                                page_number,
+                                u64::from(button.user.id),
+                            )
+                            .await,
+                        ),
+                    )
+                    .await
+                    .unwrap();
+                return;
             } else if button.data.custom_id == "block_seller_menu" {
+                button.defer_ephemeral(&ctx.http).await.unwrap();
                 let db = ctx.get_db().await.unwrap();
-                let userid = button.user.id.0;
-                let ids: Vec<&str> = button.data.values[0].split(',').collect();
+                let userid = u64::from(button.user.id);
+                let ids: Vec<String> = match button.data.kind.clone() {
+                    ComponentInteractionDataKind::StringSelect { values } => {
+                        values[0].split(',').map(|s| s.to_string()).collect()
+                    }
+                    _ => unreachable!(),
+                };
                 let sellerid = ids[0].parse::<i32>().unwrap();
                 let siteid = ids[1].parse::<i32>().unwrap();
 
@@ -177,7 +207,10 @@ pub async fn handle_interaction(ctx: Context, interaction: Interaction) {
                     .await
                     .unwrap();
                 button
-                    .edit_original_interaction_response(&ctx.http, |m| m.content("Myyjä estetty!"))
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new().content("Myyjä estetty!"),
+                    )
                     .await
                     .unwrap();
             }

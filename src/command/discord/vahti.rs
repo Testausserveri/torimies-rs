@@ -1,29 +1,24 @@
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::client::Context;
-use serenity::model::application::command::CommandOptionType;
-use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::{CommandInteraction, CommandOptionType};
 
 use super::extensions::ClientContextExt;
 use crate::vahti::new_vahti;
 
-pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-        .name("vahti")
+pub fn register() -> CreateCommand {
+    CreateCommand::new("vahti")
         .description("Luo uusi vahti")
-        .create_option(|option| {
-            option
-                .name("url")
-                .description("Hakusivun linkki")
-                .required(true)
-                .kind(CommandOptionType::String)
-        })
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::String, "url", "Hakusivun linkki")
+                .required(true),
+        )
 }
 
-pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
+pub async fn run(ctx: &Context, command: &CommandInteraction) -> String {
     let mut url = String::new();
     for a in &command.data.options {
         match a.name.as_str() {
-            "url" => url = String::from(a.value.as_ref().unwrap().as_str().unwrap()),
+            "url" => url = String::from(a.value.as_str().unwrap()),
             _ => unreachable!(),
         }
     }
@@ -32,7 +27,12 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) -> Stri
 
     let db = ctx.get_db().await.unwrap();
 
-    new_vahti(db, &url, command.user.id.0, crate::delivery::discord::ID)
-        .await
-        .unwrap_or_else(|e| e.to_string())
+    new_vahti(
+        db,
+        &url,
+        u64::from(command.user.id),
+        crate::delivery::discord::ID,
+    )
+    .await
+    .unwrap_or_else(|e| e.to_string())
 }

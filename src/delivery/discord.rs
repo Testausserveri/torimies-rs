@@ -3,10 +3,12 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{Local, TimeZone};
 use futures::stream::{self, StreamExt};
-use serenity::builder::CreateEmbed;
+use serenity::builder::{
+    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage,
+};
 use serenity::http::Http;
-use serenity::model::prelude::component::ButtonStyle;
-use serenity::utils::Color;
+use serenity::model::application::ButtonStyle;
+use serenity::model::colour::Color;
 
 use crate::delivery::Delivery;
 use crate::error::Error;
@@ -35,7 +37,7 @@ impl Discord {
 }
 
 impl VahtiItem {
-    fn embed(self, e: &mut CreateEmbed) -> &mut CreateEmbed {
+    fn embed(self) -> CreateEmbed {
         match self.site_id {
             #[cfg(feature = "tori")]
             crate::tori::ID => {
@@ -45,63 +47,74 @@ impl VahtiItem {
                     _ => Color::FADED_PURPLE,
                 };
 
-                e.color(color);
-                e.description(format!("[{}]({})", self.title, self.url));
-                e.field("Hinta", format!("{} €", self.price), true);
-                e.field(
-                    "Myyjä",
-                    format!(
-                        "[{}](https://www.tori.fi/li?&aid={})",
-                        self.seller_name, self.seller_id
-                    ),
-                    true,
-                );
-                e.field("Sijainti", &self.location, true);
-                e.field(
-                    "Ilmoitus Jätetty",
-                    Local
-                        .timestamp_opt(self.published, 0)
-                        .unwrap()
-                        .format("%d/%m/%Y %R"),
-                    true,
-                );
-                e.field("Ilmoitustyyppi", self.ad_type.to_string(), true);
-                e.footer(|f| f.text(self.vahti_url.expect("bug: impossible")));
+                let e = CreateEmbed::new()
+                    .color(color)
+                    .description(format!("[{}]({})", self.title, self.url))
+                    .field("Hinta", format!("{} €", self.price), true)
+                    .field(
+                        "Myyjä",
+                        format!(
+                            "[{}](https://www.tori.fi/li?&aid={})",
+                            self.seller_name, self.seller_id
+                        ),
+                        true,
+                    )
+                    .field("Sijainti", &self.location, true)
+                    .field(
+                        "Ilmoitus Jätetty",
+                        Local
+                            .timestamp_opt(self.published, 0)
+                            .unwrap()
+                            .format("%d/%m/%Y %R")
+                            .to_string(),
+                        true,
+                    )
+                    .field("Ilmoitustyyppi", self.ad_type.to_string(), true)
+                    .footer(CreateEmbedFooter::new(
+                        self.vahti_url.expect("bug: impossible"),
+                    ));
                 if !self.img_url.is_empty() {
-                    e.image(&self.img_url);
+                    e.image(&self.img_url)
+                } else {
+                    e
                 }
             }
             #[cfg(feature = "huutonet")]
             crate::huutonet::ID => {
-                e.color(Color::BLUE);
-                e.description(format!("[{}]({})", self.title, self.url));
-                e.field("Hinta", format!("{} €", self.price), true);
-                e.field(
-                    "Myyjä",
-                    format!(
-                        "[{}](https://www.huuto.net/kayttaja/{})",
-                        &self.seller_name, self.seller_id
-                    ),
-                    true,
-                );
-                e.field("Sijainti", &self.location, true);
-                e.field(
-                    "Ilmoitus Jätetty",
-                    Local
-                        .timestamp_opt(self.published, 0)
-                        .unwrap()
-                        .format("%d/%m/%Y %R"),
-                    true,
-                );
-                e.field("Ilmoitustyyppi", self.ad_type.to_string(), true);
-                e.footer(|f| f.text(self.vahti_url.expect("bug: impossible")));
+                let e = CreateEmbed::new()
+                    .color(Color::BLUE)
+                    .description(format!("[{}]({})", self.title, self.url))
+                    .field("Hinta", format!("{} €", self.price), true)
+                    .field(
+                        "Myyjä",
+                        format!(
+                            "[{}](https://www.huuto.net/kayttaja/{})",
+                            &self.seller_name, self.seller_id
+                        ),
+                        true,
+                    )
+                    .field("Sijainti", &self.location, true)
+                    .field(
+                        "Ilmoitus Jätetty",
+                        Local
+                            .timestamp_opt(self.published, 0)
+                            .unwrap()
+                            .format("%d/%m/%Y %R")
+                            .to_string(),
+                        true,
+                    )
+                    .field("Ilmoitustyyppi", self.ad_type.to_string(), true)
+                    .footer(CreateEmbedFooter::new(
+                        self.vahti_url.expect("bug: impossible"),
+                    ));
                 if !self.img_url.is_empty() {
-                    e.image(&self.img_url);
+                    e.image(&self.img_url)
+                } else {
+                    e
                 }
             }
             i => panic!("Unsupported site_id {}", i),
         }
-        e
     }
 }
 
@@ -126,36 +139,32 @@ impl Delivery for Discord {
 
         let http = self.http.clone();
         let recipient = http
-            .get_user(fst.deliver_to.expect("bug: impossible"))
+            .get_user(fst.deliver_to.expect("bug: impossible").into())
             .await?;
 
         stream::iter(chunks.iter().cloned())
             .map(|is| (is, http.clone(), recipient.clone()))
             .map(async move |(items, http, rec)| {
-                rec.dm(&http, |m| {
-                    for item in items {
-                        m.add_embed(|e| item.clone().embed(e));
-                    }
-                    #[cfg(feature = "discord-command")]
-                    m.components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_button(|b| {
-                                b.label("Estä myyjä");
-                                b.style(ButtonStyle::Danger);
-                                b.custom_id("block_seller")
-                            });
-                            r.create_button(|b| {
-                                b.label("Poista Vahti");
-                                b.style(ButtonStyle::Danger);
-                                b.custom_id("remove_vahti")
-                            })
-                        })
-                    });
-                    m
-                })
-                .await
-                // FIXME: Perhaps don't ignore an error here
-                .ok()
+                let mut message = CreateMessage::new();
+                for item in items {
+                    message = message.add_embed(item.clone().embed());
+                }
+                let buttons = vec![
+                    CreateButton::new("block_seller")
+                        .label("Estä myyjä")
+                        .style(ButtonStyle::Danger),
+                    CreateButton::new("remove_vahti")
+                        .label("Poista vahti")
+                        .style(ButtonStyle::Danger),
+                ];
+                let row = CreateActionRow::Buttons(buttons);
+                if cfg!(feature = "discord-command") {
+                    message = message.components(vec![row]);
+                }
+                rec.dm(&http, message)
+                    .await
+                    // FIXME: Perhaps don't ignore an error here
+                    .ok()
             })
             .buffer_unordered(*crate::FUTURES_MAX_BUFFER_SIZE)
             .collect::<Vec<_>>()
