@@ -1,71 +1,120 @@
+use encoding::all::ISO_8859_2;
+use encoding::{DecoderTrap, Encoding};
 use serde_json::Value;
+use url::Url;
 
 const TORI_PRICES: [&str; 9] = ["0", "25", "50", "75", "100", "250", "500", "1000", "2000"];
 
-// FIXME: Use url crate to simplify this function
-pub fn vahti_to_api(vahti: &str) -> String {
-    let mut url = "https://api.tori.fi/api/v1.2/public/ads?".to_owned();
-    let args = &vahti[vahti.find('?').unwrap() + 1..];
-    let mut price_set = false;
-    let mut startprice = "";
-    let mut endprice = "";
-    let mut api_args = Vec::<(String, String)>::new();
-    for arg in args.split('&') {
-        let mut parts: Vec<&str> = arg.split('=').collect();
-        if parts.len() == 1 {
-            parts.push("");
-        }
-        match parts[0] {
-            "ps" => {
-                startprice = if let Ok(n) = parts[1].parse::<usize>() {
-                    TORI_PRICES.iter().nth(n).unwrap_or(&parts[1]).to_owned()
-                } else {
-                    ""
-                };
+// NOTE: Couldn't find a good crate to do this
+fn url_decode(url: &str) -> String {
+    let mut result = String::new();
+    let mut chars = url.chars().peekable();
 
-                price_set = true;
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            if chars.peek() == Some(&'%') {
+                result.push('%');
+                let _ = chars.next();
+            } else {
+                let hex_str = (&mut chars).take(2).collect::<String>();
+                let bytes = hex::decode(&hex_str).unwrap();
+                result.push_str(&ISO_8859_2.decode(&bytes, DecoderTrap::Ignore).unwrap())
+            }
+        } else {
+            result.push(c)
+        }
+    }
+
+    result
+}
+
+// TODO: Error handling
+pub fn vahti_to_api(vahti: &str) -> String {
+    let url = Url::parse(&url_decode(vahti)).unwrap();
+    let orig_params = url
+        .query_pairs()
+        .map(|(k, v)| (k.into_owned(), v.into_owned()))
+        .collect::<Vec<_>>();
+
+    let mut range_start = None;
+    let mut range_end = None;
+
+    let mut params = orig_params
+        .clone()
+        .into_iter()
+        .filter_map(|(k, v)| match k.as_str() {
+            "q" => Some((k, v.replace(' ', "+"))),
+            "cg" => {
+                if orig_params.iter().any(|(k, _)| k == "c") || v == "0" {
+                    None
+                } else {
+                    Some((String::from("category"), v))
+                }
+            }
+            "c" => Some((String::from("category"), v)),
+            "ps" => {
+                if let Ok(n) = v.parse::<usize>() {
+                    range_start = Some(TORI_PRICES[n])
+                }
+                None
             }
             "pe" => {
-                endprice = if let Ok(n) = parts[1].parse::<usize>() {
-                    TORI_PRICES.iter().nth(n).unwrap_or(&parts[1]).to_owned()
-                } else {
-                    ""
-                };
-
-                price_set = true;
+                if let Ok(n) = v.parse::<usize>() {
+                    range_end = Some(TORI_PRICES[n])
+                }
+                None
             }
-            "cg" => {
-                if parts[1] != "0" {
-                    api_args.push(("category".to_string(), parts[1].to_string()));
+            "ca" => {
+                match orig_params
+                    .iter()
+                    .find(|(k, _)| k == "w")
+                    .map(|(_, v)| v.parse::<u64>().ok().map(|n| n > 100))
+                {
+                    Some(Some(true)) => None,
+                    _ => Some((String::from("region"), v)),
                 }
             }
-            "st" => api_args.push(("ad_type".to_string(), parts[1].to_string())),
-            "m" => api_args.push(("area".to_string(), parts[1].to_string())),
             "w" => {
-                let reg: i32 = parts[1].parse().unwrap();
-                if reg >= 100 {
-                    api_args.push(("region".to_string(), (reg - 100).to_string()));
+                if let Ok(n) = v.parse::<u64>() {
+                    if n > 100 {
+                        Some((String::from("region"), (n - 100).to_string()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
                 }
             }
-            "ca" => {}
-            _ => api_args.push((parts[0].to_string(), parts[1].to_string())),
-        }
+            "m" => Some((String::from("area"), v)),
+            "f" => match v.as_str() {
+                "p" => Some((String::from("company_ad"), String::from("0"))),
+                "c" => Some((String::from("company_ad"), String::from("1"))),
+                _ => None,
+            },
+            "st" => Some((String::from("ad_type"), v)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if range_start.is_some() || range_end.is_some() {
+        params.push((
+            String::from("suborder"),
+            format!(
+                "{}-{}",
+                range_start.unwrap_or_default(),
+                range_end.unwrap_or_default()
+            ),
+        ));
     }
-    for arg in api_args {
-        if arg.0.is_empty() {
-            continue;
-        } else {
-            url += &format!("&{}={}", arg.0, arg.1);
-        }
-    }
-    url = url.replace("%E4", "ä");
-    url = url.replace("%C4", "Ä");
-    url = url.replace("%F6", "ö");
-    url = url.replace("%D6", "Ö");
-    if price_set && (!startprice.is_empty() || !endprice.is_empty()) {
-        url += &format!("&suborder={}-{}", &startprice, &endprice);
-    }
-    url
+
+    format!(
+        "https://api.tori.fi/api/v1.2/public/ads?{}",
+        params
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join("&")
+    )
 }
 
 pub async fn is_valid_url(url: &str) -> bool {
